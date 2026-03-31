@@ -48,6 +48,7 @@ export default async function SettingsPage() {
               estimateValidityDays: company.estimateValidityDays,
             }}
             isOwner={isOwner}
+            logoUrl={company.logoUrl}
           />
         </TabsContent>
 

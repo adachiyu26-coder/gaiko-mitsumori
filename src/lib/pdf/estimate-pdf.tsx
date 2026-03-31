@@ -4,6 +4,7 @@ import {
   Page,
   Text,
   View,
+  Image,
   StyleSheet,
   Font,
 } from "@react-pdf/renderer";
@@ -220,6 +221,7 @@ interface EstimatePdfProps {
     fax: string | null;
     email: string | null;
     registrationNumber: string | null;
+    logoUrl: string | null;
   };
   customer: {
     name: string;
@@ -325,6 +327,12 @@ export function EstimatePdf({
             </Text>
           </View>
           <View style={styles.companyInfo}>
+            {company.logoUrl && (
+              <Image
+                src={company.logoUrl}
+                style={{ width: 100, height: 40, marginBottom: 4, objectFit: "contain" as const, alignSelf: "flex-end" as const }}
+              />
+            )}
             <Text style={styles.companyName}>{company.name}</Text>
             {company.address && <Text>{company.address}</Text>}
             {company.phone && <Text>TEL: {company.phone}</Text>}

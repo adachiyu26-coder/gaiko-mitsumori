@@ -1,8 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
+import path from "path";
+import { readFile } from "fs/promises";
 import { prisma } from "@/lib/db/prisma";
 import { requireUser, canViewCostPrice } from "@/lib/auth";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { EstimatePdf } from "@/lib/pdf/estimate-pdf";
+
+/** Convert a relative logoUrl to a data URI for react-pdf Image component */
+async function resolveLogoUrl(logoUrl: string | null): Promise<string | null> {
+  if (!logoUrl) return null;
+  try {
+    const filePath = path.join(process.cwd(), "public", logoUrl);
+    const buffer = await readFile(filePath);
+    const ext = path.extname(logoUrl).slice(1).toLowerCase();
+    const mime = ext === "svg" ? "image/svg+xml" : ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg";
+    return `data:${mime};base64,${buffer.toString("base64")}`;
+  } catch {
+    return null;
+  }
+}
 
 export async function GET(
   request: NextRequest,
@@ -51,7 +67,10 @@ export async function GET(
           costAmount: Number(item.costAmount),
         })),
       },
-      company: estimate.company,
+      company: {
+        ...estimate.company,
+        logoUrl: await resolveLogoUrl(estimate.company.logoUrl),
+      },
       customer: estimate.customer,
       showCost,
     })
