@@ -33,11 +33,12 @@ export function DeleteEstimateButton({ estimateId }: { estimateId: string }) {
 
   return (
     <AlertDialog>
-      <AlertDialogTrigger>
-        <Button variant="destructive" size="sm" disabled={isPending}>
-          <Trash2 className="mr-2 h-4 w-4" />
-          削除
-        </Button>
+      <AlertDialogTrigger
+        disabled={isPending}
+        className="inline-flex items-center justify-center rounded-md bg-destructive text-destructive-foreground hover:bg-destructive/90 text-sm font-medium px-3 py-1.5 transition-colors disabled:opacity-50"
+      >
+        <Trash2 className="mr-2 h-4 w-4" />
+        削除
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>

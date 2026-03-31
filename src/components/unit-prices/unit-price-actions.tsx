@@ -112,10 +112,11 @@ export function UnitPriceActions({ item, categories }: Props) {
   return (
     <>
       <DropdownMenu>
-        <DropdownMenuTrigger>
-          <Button variant="ghost" size="icon" disabled={isPending}>
-            <MoreHorizontal className="h-4 w-4" />
-          </Button>
+        <DropdownMenuTrigger
+          disabled={isPending}
+          className="inline-flex items-center justify-center rounded-md h-8 w-8 hover:bg-accent transition-colors disabled:opacity-50"
+        >
+          <MoreHorizontal className="h-4 w-4" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuItem onClick={() => setEditOpen(true)}>
