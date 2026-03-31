@@ -78,7 +78,7 @@ export default async function UnitPriceMasterPage({
         <select
           name="categoryId"
           defaultValue={categoryId}
-          className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+          className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 min-w-[140px]"
         >
           <option value="">すべてのカテゴリ</option>
           {categories.map((c) => (

@@ -14,14 +14,13 @@ import {
 } from "@/components/ui/table";
 import { Plus, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { formatDate } from "@/lib/utils/format";
+import { PAGE_SIZE } from "@/lib/constants/status";
 
 const customerTypeLabels: Record<string, string> = {
   individual: "個人",
   corporate: "法人",
   subcontract: "下請",
 };
-
-const PAGE_SIZE = 20;
 
 export default async function CustomersPage({
   searchParams,
@@ -75,7 +74,7 @@ export default async function CustomersPage({
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">顧客管理</h1>
         <Link href="/customers/new">
-          <Button className="bg-[#1e3a5f] hover:bg-[#162d4a]">
+          <Button className="bg-brand hover:bg-brand-hover">
             <Plus className="mr-2 h-4 w-4" />
             新規顧客
           </Button>
@@ -114,6 +113,7 @@ export default async function CustomersPage({
             </p>
           ) : (
             <>
+              <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -131,7 +131,7 @@ export default async function CustomersPage({
                       <TableCell>
                         <Link
                           href={`/customers/${customer.id}`}
-                          className="text-[#1e3a5f] hover:underline font-medium"
+                          className="text-brand hover:underline font-medium"
                         >
                           {customer.name}
                           {customer.honorific}
@@ -152,6 +152,7 @@ export default async function CustomersPage({
                   ))}
                 </TableBody>
               </Table>
+              </div>
 
               {/* ページネーション */}
               {totalPages > 1 && (

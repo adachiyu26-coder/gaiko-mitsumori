@@ -3,11 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db/prisma";
-import { requireUser } from "@/lib/auth";
+import { requireUser, canEditCustomer, canDeleteCustomer } from "@/lib/auth";
 import { customerSchema, type CustomerFormData } from "@/lib/validations/customer";
 
 export async function createCustomer(data: CustomerFormData) {
   const user = await requireUser();
+  if (!canEditCustomer(user.role)) throw new Error("権限がありません");
   const validated = customerSchema.parse(data);
 
   await prisma.customer.create({
@@ -23,6 +24,7 @@ export async function createCustomer(data: CustomerFormData) {
 
 export async function updateCustomer(id: string, data: CustomerFormData) {
   const user = await requireUser();
+  if (!canEditCustomer(user.role)) throw new Error("権限がありません");
   const validated = customerSchema.parse(data);
 
   await prisma.customer.update({
@@ -37,6 +39,7 @@ export async function updateCustomer(id: string, data: CustomerFormData) {
 
 export async function deleteCustomer(id: string) {
   const user = await requireUser();
+  if (!canDeleteCustomer(user.role)) throw new Error("権限がありません");
 
   await prisma.customer.delete({
     where: { id, companyId: user.companyId },

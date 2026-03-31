@@ -43,6 +43,11 @@ interface Props {
   customers: { id: string; name: string; honorific: string }[];
   categories: { id: string; name: string }[];
   showCostPrice: boolean;
+  companyDefaults?: {
+    taxRate: number;
+    expenseRate: number;
+    estimateValidityDays: number;
+  };
 }
 
 export function EstimateForm({
@@ -52,6 +57,7 @@ export function EstimateForm({
   customers,
   categories,
   showCostPrice,
+  companyDefaults,
 }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -63,6 +69,17 @@ export function EstimateForm({
     setIsDirty(true);
   };
 
+  // Compute default expiry date from company settings
+  const defaultExpiry = (() => {
+    if (defaultValues?.expiryDate) return defaultValues.expiryDate;
+    if (!isEdit && companyDefaults?.estimateValidityDays) {
+      const d = new Date();
+      d.setDate(d.getDate() + companyDefaults.estimateValidityDays);
+      return d.toISOString().slice(0, 10);
+    }
+    return "";
+  })();
+
   const [header, setHeader] = useState({
     title: defaultValues?.title ?? "",
     customerId: defaultValues?.customerId ?? "",
@@ -70,33 +87,30 @@ export function EstimateForm({
     estimateDate:
       defaultValues?.estimateDate ??
       new Date().toISOString().slice(0, 10),
-    expiryDate: defaultValues?.expiryDate ?? "",
+    expiryDate: defaultExpiry,
     note: defaultValues?.note ?? "",
     internalMemo: defaultValues?.internalMemo ?? "",
     paymentTerms: defaultValues?.paymentTerms ?? "",
   });
 
   useEffect(() => {
-    if (defaultValues) {
-      store.setItems(defaultValues.items);
-      store.setOptions({
-        expenseRate: defaultValues.expenseRate,
-        discountType: defaultValues.discountType,
-        discountValue: defaultValues.discountValue,
-        taxRate: defaultValues.taxRate,
-      });
-    }
+    store.initEditor(defaultValues?.items ?? [], {
+      expenseRate: defaultValues?.expenseRate ?? companyDefaults?.expenseRate ?? 10,
+      discountType: defaultValues?.discountType ?? "amount",
+      discountValue: defaultValues?.discountValue ?? 0,
+      taxRate: defaultValues?.taxRate ?? companyDefaults?.taxRate ?? 10,
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 未保存変更の警告
+  // 未保存変更の警告（ヘッダーまたは明細のどちらかが変更されていれば警告）
   const handleBeforeUnload = useCallback(
     (e: BeforeUnloadEvent) => {
-      if (isDirty) {
+      if (isDirty || store.isDirty) {
         e.preventDefault();
       }
     },
-    [isDirty]
+    [isDirty, store.isDirty]
   );
 
   useEffect(() => {
@@ -112,6 +126,13 @@ export function EstimateForm({
 
     startTransition(async () => {
       try {
+        // temp-xxx 形式のIDをUUIDへリマップして親子関係を正しく保存する
+        const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        const idMap = new Map<string, string>();
+        for (const item of store.items) {
+          idMap.set(item.id, UUID_RE.test(item.id) ? item.id : crypto.randomUUID());
+        }
+
         const payload = {
           title: header.title,
           customerId: header.customerId || null,
@@ -126,8 +147,11 @@ export function EstimateForm({
           internalMemo: header.internalMemo || null,
           paymentTerms: header.paymentTerms || null,
           items: store.items.map((item, idx) => ({
+            id: idMap.get(item.id),
             level: item.level,
-            parentItemId: item.parentItemId ?? null,
+            parentItemId: item.parentItemId
+              ? (idMap.get(item.parentItemId) ?? null)
+              : null,
             sortOrder: item.sortOrder ?? idx,
             itemName: item.itemName,
             specification: item.specification,
@@ -201,7 +225,7 @@ export function EstimateForm({
           <Button
             onClick={handleSave}
             disabled={isPending}
-            className="bg-[#1e3a5f] hover:bg-[#162d4a]"
+            className="bg-brand hover:bg-brand-hover"
           >
             <Save className="mr-2 h-4 w-4" />
             {isPending ? "保存中..." : "保存"}
@@ -221,7 +245,7 @@ export function EstimateForm({
               <Input
                 value={header.title}
                 onChange={(e) =>
-                  setHeader({ ...header, title: e.target.value })
+                  updateHeader({ title: e.target.value })
                 }
                 placeholder="〇〇様邸 外構工事"
               />
@@ -230,6 +254,9 @@ export function EstimateForm({
               <Label>顧客</Label>
               <Select
                 value={header.customerId}
+                items={Object.fromEntries(
+                  customers.map((c) => [c.id, `${c.name}${c.honorific}`])
+                )}
                 onValueChange={(v) =>
                   setHeader({ ...header, customerId: v ?? "" })
                 }
@@ -252,7 +279,7 @@ export function EstimateForm({
               <Input
                 value={header.siteAddress}
                 onChange={(e) =>
-                  setHeader({ ...header, siteAddress: e.target.value })
+                  updateHeader({ siteAddress: e.target.value })
                 }
               />
             </div>
@@ -262,7 +289,7 @@ export function EstimateForm({
                 type="date"
                 value={header.estimateDate}
                 onChange={(e) =>
-                  setHeader({ ...header, estimateDate: e.target.value })
+                  updateHeader({ estimateDate: e.target.value })
                 }
               />
             </div>
@@ -272,7 +299,7 @@ export function EstimateForm({
                 type="date"
                 value={header.expiryDate}
                 onChange={(e) =>
-                  setHeader({ ...header, expiryDate: e.target.value })
+                  updateHeader({ expiryDate: e.target.value })
                 }
               />
             </div>
@@ -314,7 +341,7 @@ export function EstimateForm({
               <Textarea
                 value={header.note}
                 onChange={(e) =>
-                  setHeader({ ...header, note: e.target.value })
+                  updateHeader({ note: e.target.value })
                 }
                 rows={3}
               />
@@ -324,7 +351,7 @@ export function EstimateForm({
               <Textarea
                 value={header.internalMemo}
                 onChange={(e) =>
-                  setHeader({ ...header, internalMemo: e.target.value })
+                  updateHeader({ internalMemo: e.target.value })
                 }
                 rows={3}
               />
@@ -334,7 +361,7 @@ export function EstimateForm({
               <Input
                 value={header.paymentTerms}
                 onChange={(e) =>
-                  setHeader({ ...header, paymentTerms: e.target.value })
+                  updateHeader({ paymentTerms: e.target.value })
                 }
                 placeholder="契約時50%、完了時50%"
               />

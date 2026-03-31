@@ -33,7 +33,8 @@ export function recalculateEstimate(
     taxRate: number;
   }
 ): EstimateTotals {
-  const detailItems = items.filter((i) => i.level === 4 && !i.isAlternative);
+  // 全レベルの非代替アイテムを集計対象とする（工種・大項目・中項目・品名すべて可）
+  const detailItems = items.filter((i) => !i.isAlternative);
 
   const subtotal = detailItems.reduce((sum, item) => sum + (item.amount ?? 0), 0);
   const costSubtotal = detailItems.reduce(

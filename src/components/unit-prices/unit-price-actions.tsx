@@ -30,6 +30,7 @@ import {
   updateUnitPrice,
   toggleUnitPriceActive,
 } from "@/app/(dashboard)/master/unit-prices/actions";
+import { ESTIMATE_UNITS } from "@/lib/constants/status";
 import { toast } from "sonner";
 
 interface Props {
@@ -196,7 +197,7 @@ export function UnitPriceActions({ item, categories }: Props) {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {["㎡", "m", "個", "台", "本", "式", "m3", "人工", "セット"].map((u) => (
+                    {ESTIMATE_UNITS.map((u) => (
                       <SelectItem key={u} value={u}>{u}</SelectItem>
                     ))}
                   </SelectContent>
@@ -238,7 +239,7 @@ export function UnitPriceActions({ item, categories }: Props) {
             <Button
               onClick={handleUpdate}
               disabled={isPending || !form.itemName || !form.unitPrice}
-              className="w-full bg-[#1e3a5f] hover:bg-[#162d4a]"
+              className="w-full bg-brand hover:bg-brand-hover"
             >
               {isPending ? "更新中..." : "更新"}
             </Button>

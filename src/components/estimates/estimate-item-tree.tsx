@@ -1,8 +1,7 @@
 "use client";
 
+import { Fragment, useState, useMemo } from "react";
 import { Plus, Trash2, ChevronRight, ChevronDown, GitBranch } from "lucide-react";
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -11,24 +10,34 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useEstimateEditor, generateTempId } from "@/stores/estimate-editor";
+import { useEstimateEditor, generateTempId, type EditorItem } from "@/stores/estimate-editor";
 import { formatCurrency } from "@/lib/utils/format";
+import { ESTIMATE_UNITS } from "@/lib/constants/status";
 import { cn } from "@/lib/utils";
 
-const UNITS = ["㎡", "m", "個", "台", "本", "式", "m3", "人工", "セット"];
+const UNITS = ESTIMATE_UNITS;
 
 const LEVEL_LABELS: Record<number, string> = {
   1: "工種",
   2: "大項目",
   3: "中項目",
-  4: "明細",
+  4: "品名",
 };
 
-const LEVEL_COLORS: Record<number, string> = {
-  1: "bg-[#1e3a5f] text-white",
-  2: "bg-blue-100 text-blue-900",
-  3: "bg-gray-100 text-gray-800",
-  4: "",
+// 階層ごとの行スタイル
+const LEVEL_ROW: Record<number, string> = {
+  1: "bg-brand/[0.07] border-l-[3px] border-l-brand",
+  2: "bg-blue-50/60 border-l-[3px] border-l-blue-400",
+  3: "bg-gray-50 border-l-2 border-l-gray-300",
+  4: "bg-white hover:bg-slate-50/80",
+};
+
+// 階層バッジスタイル
+const LEVEL_BADGE: Record<number, string> = {
+  1: "bg-brand text-white",
+  2: "bg-blue-500 text-white",
+  3: "bg-gray-400 text-white",
+  4: "bg-gray-100 border text-gray-500",
 };
 
 interface Props {
@@ -36,33 +45,48 @@ interface Props {
   showCostPrice: boolean;
 }
 
+/** parentId 直下の全子孫アイテムの金額合計（代替案除く） */
+function calcSectionTotal(allItems: EditorItem[], parentId: string): number {
+  return allItems
+    .filter((i) => i.parentItemId === parentId && !i.isAlternative)
+    .reduce((sum, child) => sum + child.amount + calcSectionTotal(allItems, child.id), 0);
+}
+
+function childrenOf(
+  allItems: EditorItem[],
+  parentId: string | null,
+  level: number
+): EditorItem[] {
+  return allItems
+    .filter((i) => i.parentItemId === parentId && i.level === level)
+    .sort((a, b) => a.sortOrder - b.sortOrder);
+}
+
 export function EstimateItemTree({ showCostPrice }: Props) {
   const { items, updateItem, removeItem, addItem } = useEstimateEditor();
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
-  const toggleCollapse = (id: string) => {
-    setCollapsed((s) => ({ ...s, [id]: !s[id] }));
-  };
-
-  const getChildItems = (parentId: string | null, level: number) => {
-    return items
-      .filter(
-        (i) =>
-          i.parentItemId === parentId && i.level === level
-      )
-      .sort((a, b) => a.sortOrder - b.sortOrder);
-  };
+  const isCollapsed = (id: string) => collapsed.has(id);
+  const toggleCollapse = (id: string) =>
+    setCollapsed((prev) => {
+      const s = new Set(prev);
+      s.has(id) ? s.delete(id) : s.add(id);
+      return s;
+    });
 
   const addChild = (parentId: string | null, level: number) => {
-    const newItem = {
+    const count = items.filter(
+      (i) => i.parentItemId === parentId && i.level === level
+    ).length;
+    addItem({
       id: generateTempId(),
       parentItemId: parentId,
       level,
-      sortOrder: items.filter((i) => i.parentItemId === parentId).length,
+      sortOrder: count,
       itemName: "",
       specification: null,
       quantity: null,
-      unit: level === 4 ? "式" : null,
+      unit: "式",
       unitPrice: null,
       costPrice: null,
       amount: 0,
@@ -71,212 +95,253 @@ export function EstimateItemTree({ showCostPrice }: Props) {
       unitPriceMasterId: null,
       note: null,
       isAlternative: false,
-    };
-    addItem(newItem);
+    });
   };
 
-  const getSubtotal = (parentId: string): number => {
-    const children = items.filter((i) => i.parentItemId === parentId);
-    return children.reduce((sum, child) => {
-      if (child.level === 4 && !child.isAlternative) return sum + child.amount;
-      if (child.level < 4) return sum + getSubtotal(child.id);
-      return sum;
-    }, 0);
-  };
-
-  const renderItem = (item: (typeof items)[0]) => {
-    const isCollapsed = collapsed[item.id];
+  const renderRow = (item: EditorItem, depth: number): React.ReactNode => {
     const isHeader = item.level < 4;
-    const indent = (item.level - 1) * 24;
+    const children = isHeader ? childrenOf(items, item.id, item.level + 1) : [];
+    const sectionTotal = isHeader ? calcSectionTotal(items, item.id) : 0;
 
     return (
-      <div key={item.id}>
+      <Fragment key={item.id}>
+        {/* ── アイテム行 ─────────────────────────────────────── */}
         <div
           className={cn(
-            "flex items-center gap-2 py-1.5 px-2 rounded group hover:bg-gray-50 border-b",
-            LEVEL_COLORS[item.level],
-            item.level === 4 && item.isAlternative && "bg-amber-50 border-amber-200 opacity-75"
+            "flex items-center gap-1 border-b group py-1 pr-2",
+            LEVEL_ROW[item.level],
+            item.isAlternative && "opacity-60 bg-amber-50/80 border-l-amber-300"
           )}
-          style={{ paddingLeft: `${indent + 8}px` }}
+          style={{ paddingLeft: `${8 + depth * 20}px` }}
         >
-          {/* Collapse toggle for headers */}
-          {isHeader && (
-            <button
-              onClick={() => toggleCollapse(item.id)}
-              className="p-0.5"
-            >
-              {isCollapsed ? (
-                <ChevronRight className="h-4 w-4" />
-              ) : (
-                <ChevronDown className="h-4 w-4" />
-              )}
-            </button>
-          )}
-
-          {/* Item name */}
-          <div className={cn("flex-1", isHeader ? "min-w-[200px]" : "min-w-[150px]")}>
-            <Input
-              value={item.itemName}
-              onChange={(e) => updateItem(item.id, { itemName: e.target.value })}
-              placeholder={LEVEL_LABELS[item.level]}
-              className={cn(
-                "h-8 text-sm",
-                isHeader && "font-semibold border-none bg-transparent shadow-none"
-              )}
-            />
-          </div>
-
-          {/* Detail fields only for level 4 */}
-          {item.level === 4 && (
-            <>
-              <Input
-                value={item.specification ?? ""}
-                onChange={(e) =>
-                  updateItem(item.id, { specification: e.target.value || null })
-                }
-                placeholder="規格"
-                className="h-8 text-sm w-28"
-              />
-              <Input
-                type="number"
-                value={item.quantity ?? ""}
-                onChange={(e) =>
-                  updateItem(item.id, {
-                    quantity: e.target.value ? parseFloat(e.target.value) : null,
-                  })
-                }
-                placeholder="数量"
-                className="h-8 text-sm w-20 text-right"
-              />
-              <Select
-                value={item.unit ?? ""}
-                onValueChange={(v) => updateItem(item.id, { unit: v ?? null })}
-              >
-                <SelectTrigger className="h-8 w-16 text-sm">
-                  <SelectValue placeholder="-" />
-                </SelectTrigger>
-                <SelectContent>
-                  {UNITS.map((u) => (
-                    <SelectItem key={u} value={u}>
-                      {u}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Input
-                type="number"
-                value={item.unitPrice ?? ""}
-                onChange={(e) =>
-                  updateItem(item.id, {
-                    unitPrice: e.target.value
-                      ? parseInt(e.target.value)
-                      : null,
-                  })
-                }
-                placeholder="単価"
-                className="h-8 text-sm w-24 text-right"
-              />
-              <div className="w-24 text-right text-sm font-mono">
-                {formatCurrency(item.amount)}
-              </div>
-              {showCostPrice && (
-                <>
-                  <Input
-                    type="number"
-                    value={item.costPrice ?? ""}
-                    onChange={(e) =>
-                      updateItem(item.id, {
-                        costPrice: e.target.value
-                          ? parseInt(e.target.value)
-                          : null,
-                      })
-                    }
-                    placeholder="原価"
-                    className="h-8 text-sm w-24 text-right"
-                  />
-                </>
-              )}
-            </>
-          )}
-
-          {/* Subtotal for headers */}
-          {isHeader && (
-            <div className="text-sm font-mono mr-2">
-              小計 {formatCurrency(getSubtotal(item.id))}
-            </div>
-          )}
-
-          {/* Alternative flag for level 4 */}
-          {item.level === 4 && (
+          {/* 折りたたみトグル */}
+          {isHeader ? (
             <button
               type="button"
-              onClick={() => updateItem(item.id, { isAlternative: !item.isAlternative })}
-              title={item.isAlternative ? "代替案（クリックで通常に戻す）" : "通常（クリックで代替案にする）"}
+              onClick={() => toggleCollapse(item.id)}
+              aria-expanded={!isCollapsed(item.id)}
+              aria-label={`${item.itemName || LEVEL_LABELS[item.level]}を${isCollapsed(item.id) ? "展開" : "折りたたみ"}`}
+              className="w-5 h-5 flex items-center justify-center flex-shrink-0 text-muted-foreground/50 hover:text-foreground transition-colors"
+            >
+              {isCollapsed(item.id) ? (
+                <ChevronRight className="h-3.5 w-3.5" />
+              ) : (
+                <ChevronDown className="h-3.5 w-3.5" />
+              )}
+            </button>
+          ) : (
+            <div className="w-5 flex-shrink-0" />
+          )}
+
+          {/* 階層バッジ */}
+          <span
+            className={cn(
+              "text-[9px] font-bold px-1.5 py-0.5 rounded flex-shrink-0 whitespace-nowrap",
+              LEVEL_BADGE[item.level]
+            )}
+          >
+            {LEVEL_LABELS[item.level]}
+          </span>
+
+          {/* 品名 */}
+          <Input
+            value={item.itemName}
+            onChange={(e) => updateItem(item.id, { itemName: e.target.value })}
+            placeholder="品名"
+            className={cn(
+              "h-7 text-xs flex-1 min-w-[60px]",
+              item.level === 1 && "font-bold",
+              item.level === 2 && "font-semibold",
+              item.level === 3 && "font-medium"
+            )}
+          />
+
+          {/* 規格 */}
+          <Input
+            value={item.specification ?? ""}
+            onChange={(e) =>
+              updateItem(item.id, { specification: e.target.value || null })
+            }
+            placeholder="規格"
+            className="h-7 text-xs w-[76px] flex-shrink-0"
+          />
+
+          {/* 数量 */}
+          <Input
+            type="number"
+            value={item.quantity ?? ""}
+            onChange={(e) =>
+              updateItem(item.id, {
+                quantity: e.target.value ? parseFloat(e.target.value) : null,
+              })
+            }
+            placeholder="数量"
+            className="h-7 text-xs w-[56px] flex-shrink-0 text-right"
+          />
+
+          {/* 単位 */}
+          <Select
+            value={item.unit ?? "式"}
+            onValueChange={(v) => updateItem(item.id, { unit: v || null })}
+          >
+            <SelectTrigger className="h-7 w-[48px] text-xs px-1 flex-shrink-0">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {UNITS.map((u) => (
+                <SelectItem key={u} value={u}>
+                  {u}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* 単価 */}
+          <Input
+            type="number"
+            value={item.unitPrice ?? ""}
+            onChange={(e) =>
+              updateItem(item.id, {
+                unitPrice: e.target.value ? parseInt(e.target.value) : null,
+              })
+            }
+            placeholder="単価"
+            className="h-7 text-xs w-[76px] flex-shrink-0 text-right"
+          />
+
+          {/* 金額（直接入力分） */}
+          <div className="w-[80px] flex-shrink-0 text-right pr-0.5">
+            <span
               className={cn(
-                "h-7 w-7 flex items-center justify-center rounded text-xs flex-shrink-0 transition-colors",
+                "text-xs font-mono tabular-nums",
+                item.amount === 0 && "text-muted-foreground/30"
+              )}
+            >
+              {formatCurrency(item.amount)}
+            </span>
+          </div>
+
+          {/* 原価 */}
+          {showCostPrice && (
+            <Input
+              type="number"
+              value={item.costPrice ?? ""}
+              onChange={(e) =>
+                updateItem(item.id, {
+                  costPrice: e.target.value ? parseInt(e.target.value) : null,
+                })
+              }
+              placeholder="原価"
+              className="h-7 text-xs w-[76px] flex-shrink-0 text-right"
+            />
+          )}
+
+          {/* 小計（階層ヘッダーのみ：直下含む全子孫の合計） */}
+          <div className="w-[84px] flex-shrink-0 text-right">
+            {isHeader && (item.amount > 0 || sectionTotal > 0) ? (
+              <span className="text-[10px] font-mono tabular-nums text-muted-foreground">
+                <span className="text-[9px] mr-0.5">計</span>
+                {formatCurrency(item.amount + sectionTotal)}
+              </span>
+            ) : (
+              <span />
+            )}
+          </div>
+
+          {/* アクション */}
+          <div className="flex items-center gap-0.5 w-[52px] flex-shrink-0 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+            {isHeader && (
+              <button
+                type="button"
+                onClick={() => addChild(item.id, item.level + 1)}
+                title={`${LEVEL_LABELS[item.level + 1]}を追加`}
+                className="h-5 w-5 flex items-center justify-center rounded text-muted-foreground hover:text-blue-600 hover:bg-blue-50 transition-colors"
+              >
+                <Plus className="h-3 w-3" />
+              </button>
+            )}
+            <button
+              type="button"
+              title={item.isAlternative ? "代替案 → 通常" : "通常 → 代替案"}
+              onClick={() =>
+                updateItem(item.id, { isAlternative: !item.isAlternative })
+              }
+              className={cn(
+                "h-5 w-5 flex items-center justify-center rounded transition-colors",
                 item.isAlternative
-                  ? "bg-amber-200 text-amber-700 hover:bg-amber-300"
+                  ? "bg-amber-200 text-amber-700"
                   : "text-muted-foreground hover:text-amber-600 hover:bg-amber-50"
               )}
             >
               <GitBranch className="h-3 w-3" />
             </button>
-          )}
-
-          {/* Add child / delete */}
-          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-            {item.level < 4 && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                onClick={() => addChild(item.id, item.level + 1)}
-                title={`${LEVEL_LABELS[item.level + 1]}を追加`}
-              >
-                <Plus className="h-3 w-3" />
-              </Button>
-            )}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 text-destructive"
+            <button
+              type="button"
               onClick={() => removeItem(item.id)}
+              aria-label={`${item.itemName || LEVEL_LABELS[item.level]}を削除`}
+              className="h-5 w-5 flex items-center justify-center rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
             >
               <Trash2 className="h-3 w-3" />
-            </Button>
+            </button>
           </div>
         </div>
 
-        {/* Children */}
-        {!isCollapsed &&
-          isHeader &&
-          getChildItems(item.id, item.level + 1).map(renderItem)}
-      </div>
+        {/* ── 子アイテム（再帰）+ 追加ボタン ────────────────── */}
+        {isHeader && !isCollapsed(item.id) && (
+          <>
+            {children.map((child) => renderRow(child, depth + 1))}
+            {/* 子アイテム追加行 */}
+            <div
+              className="flex border-b border-dashed border-muted-foreground/15 bg-muted/5"
+              style={{ paddingLeft: `${8 + (depth + 1) * 20}px` }}
+            >
+              <button
+                type="button"
+                onClick={() => addChild(item.id, item.level + 1)}
+                className="flex items-center gap-1.5 py-1.5 px-2 text-[11px] text-muted-foreground hover:text-foreground hover:bg-blue-50/50 transition-colors"
+              >
+                <Plus className="h-3 w-3" />
+                {LEVEL_LABELS[item.level + 1]}を追加
+              </button>
+            </div>
+          </>
+        )}
+      </Fragment>
     );
   };
 
-  const rootItems = getChildItems(null, 1);
+  const rootItems = useMemo(() => childrenOf(items, null, 1), [items]);
 
   return (
-    <div className="border rounded-lg overflow-hidden">
-      {/* Column headers */}
-      <div className="flex items-center gap-2 py-2 px-2 bg-gray-50 border-b text-xs text-muted-foreground font-medium">
-        <div className="flex-1 min-w-[150px] pl-2">品名</div>
-        <div className="w-28">規格</div>
-        <div className="w-20 text-right">数量</div>
-        <div className="w-16">単位</div>
-        <div className="w-24 text-right">単価</div>
-        <div className="w-24 text-right">金額</div>
-        {showCostPrice && <div className="w-24 text-right">原価</div>}
-        <div className="w-16" />
+    <div className="border rounded-xl overflow-hidden">
+      {/* ── 列ヘッダー ─────────────────────────────────────── */}
+      <div className="flex items-center gap-1 px-2 py-1.5 bg-muted border-b text-[11px] font-medium text-muted-foreground">
+        <div className="w-5 flex-shrink-0" />
+        {/* badge area */}
+        <div className="w-[42px] flex-shrink-0" />
+        <div className="flex-1 min-w-[60px] pl-0.5">品名</div>
+        <div className="w-[76px] flex-shrink-0">規格</div>
+        <div className="w-[56px] flex-shrink-0 text-right">数量</div>
+        <div className="w-[48px] flex-shrink-0 text-center">単位</div>
+        <div className="w-[76px] flex-shrink-0 text-right">単価</div>
+        <div className="w-[80px] flex-shrink-0 text-right">金額</div>
+        {showCostPrice && (
+          <div className="w-[76px] flex-shrink-0 text-right">原価</div>
+        )}
+        <div className="w-[84px] flex-shrink-0 text-right">小計</div>
+        <div className="w-[52px] flex-shrink-0" />
       </div>
 
+      {/* ── アイテムリスト ──────────────────────────────────── */}
       {rootItems.length === 0 ? (
-        <div className="py-8 text-center text-muted-foreground text-sm">
-          「工種を追加」ボタンで見積明細を追加してください
+        <div className="flex flex-col items-center justify-center py-12 text-muted-foreground bg-muted/10">
+          <p className="text-sm mb-1">見積明細がありません</p>
+          <p className="text-xs opacity-70">
+            「工種を追加」ボタンで追加してください
+          </p>
         </div>
       ) : (
-        rootItems.map(renderItem)
+        rootItems.map((item) => renderRow(item, 0))
       )}
     </div>
   );

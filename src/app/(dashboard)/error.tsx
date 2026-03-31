@@ -24,7 +24,7 @@ export default function DashboardError({
       <p className="text-sm text-muted-foreground text-center max-w-md">
         {error.message || "予期しないエラーが発生しました。再度お試しください。"}
       </p>
-      <Button onClick={reset} className="bg-[#1e3a5f] hover:bg-[#162d4a]">
+      <Button onClick={reset} className="bg-brand hover:bg-brand-hover">
         再試行
       </Button>
     </div>

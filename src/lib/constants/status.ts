@@ -11,4 +11,15 @@ export const ESTIMATE_STATUS_CONFIG: Record<
   expired: { label: "期限切れ", variant: "secondary", color: "bg-yellow-100 text-yellow-700" },
 };
 
-export const ESTIMATE_UNITS = ["㎡", "m", "個", "台", "本", "式", "m3", "人工", "セット"] as const;
+/** Valid status transitions: key = current status, value = allowed next statuses */
+export const VALID_STATUS_TRANSITIONS: Record<EstimateStatus, EstimateStatus[]> = {
+  draft: ["submitted"],
+  submitted: ["accepted", "rejected"],
+  accepted: [],
+  rejected: ["draft"],
+  expired: ["draft"],
+};
+
+export const ESTIMATE_UNITS = ["式", "㎡", "m", "m3", "個", "台", "本", "人工", "セット"] as const;
+
+export const PAGE_SIZE = 20;

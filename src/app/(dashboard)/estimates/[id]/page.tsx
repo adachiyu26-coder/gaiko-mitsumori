@@ -11,17 +11,9 @@ import { formatCurrency, formatDate, formatPercent } from "@/lib/utils/format";
 import { EstimateStatusActions } from "@/components/estimates/estimate-status-actions";
 import { DeleteEstimateButton } from "@/components/estimates/delete-estimate-button";
 import { DuplicateEstimateButton } from "@/components/estimates/duplicate-estimate-button";
+import { ESTIMATE_STATUS_CONFIG } from "@/lib/constants/status";
 
-const statusConfig: Record<
-  string,
-  { label: string; variant: "default" | "secondary" | "destructive" | "outline" }
-> = {
-  draft: { label: "作成中", variant: "secondary" },
-  submitted: { label: "提出済", variant: "default" },
-  accepted: { label: "受注", variant: "outline" },
-  rejected: { label: "失注", variant: "destructive" },
-  expired: { label: "期限切れ", variant: "secondary" },
-};
+const statusConfig = ESTIMATE_STATUS_CONFIG;
 
 export default async function EstimateDetailPage({
   params,
@@ -43,67 +35,89 @@ export default async function EstimateDetailPage({
 
   if (!estimate) notFound();
 
-  const s = statusConfig[estimate.status] ?? statusConfig.draft;
+  const s = statusConfig[estimate.status as keyof typeof statusConfig] ?? statusConfig.draft;
 
   // Build tree structure for display
-  const rootItems = estimate.items.filter((i) => i.parentItemId === null);
+  const rootItems = estimate.items.filter((i) => i.parentItemId === null && i.level === 1).sort((a, b) => a.sortOrder - b.sortOrder);
   const getChildren = (parentId: string) =>
-    estimate.items.filter((i) => i.parentItemId === parentId);
+    estimate.items.filter((i) => i.parentItemId === parentId).sort((a, b) => a.sortOrder - b.sortOrder);
+
+  // Recursively sum all non-alternative descendants' amounts (all levels)
+  const calcDescendantTotal = (parentId: string): number =>
+    estimate.items
+      .filter((c) => c.parentItemId === parentId && !c.isAlternative)
+      .reduce((sum, child) => sum + Number(child.amount) + calcDescendantTotal(child.id), 0);
+
+  const LEVEL_ROW_BG: Record<number, string> = {
+    1: "bg-brand/[0.07]",
+    2: "bg-blue-50/60",
+    3: "bg-gray-50",
+    4: "bg-white",
+  };
 
   const renderItem = (item: (typeof estimate.items)[0], depth: number) => {
     const children = getChildren(item.id);
-    const isDetail = item.level === 4;
-    const indent = depth * 24;
+    const isHeader = item.level < 4;
+    const indent = depth * 20;
+    const sectionTotal = isHeader ? calcDescendantTotal(item.id) : 0;
+    const hasOwnAmount = Number(item.amount) > 0;
 
     return (
       <div key={item.id}>
         <div
-          className="flex items-center gap-2 py-1.5 border-b text-sm"
+          className={`flex items-center gap-2 py-1.5 border-b text-sm ${LEVEL_ROW_BG[item.level] ?? "bg-white"} ${item.isAlternative ? "opacity-60" : ""}`}
           style={{ paddingLeft: `${indent + 8}px` }}
         >
-          <div className="flex-1 font-medium">
-            {!isDetail && <span className="text-muted-foreground mr-1">▸</span>}
+          <div className={`flex-1 min-w-0 ${item.level === 1 ? "font-bold" : item.level === 2 ? "font-semibold" : item.level === 3 ? "font-medium" : ""}`}>
+            {isHeader && <span className="text-muted-foreground mr-1">▸</span>}
             {item.itemName}
+            {item.isAlternative && (
+              <span className="ml-2 text-xs text-amber-600 font-normal">（代替案）</span>
+            )}
           </div>
-          {isDetail && (
+          {/* spec / qty / unit / unitPrice – only for level 4 or when item has values */}
+          {item.level === 4 ? (
             <>
-              <div className="w-28 text-xs">{item.specification ?? ""}</div>
-              <div className="w-16 text-right">{item.quantity?.toString() ?? ""}</div>
-              <div className="w-12 text-xs">{item.unit ?? ""}</div>
-              <div className="w-24 text-right font-mono">
+              <div className="w-24 text-xs text-muted-foreground shrink-0">{item.specification ?? ""}</div>
+              <div className="w-12 text-right shrink-0 text-xs">{item.quantity != null ? String(item.quantity) : ""}</div>
+              <div className="w-10 text-xs shrink-0">{item.unit ?? ""}</div>
+              <div className="w-20 text-right font-mono text-xs shrink-0">
                 {item.unitPrice ? formatCurrency(Number(item.unitPrice)) : ""}
               </div>
-              <div className="w-24 text-right font-mono font-semibold">
-                {formatCurrency(Number(item.amount))}
+              <div className="w-24 text-right font-mono font-semibold shrink-0">
+                {hasOwnAmount ? formatCurrency(Number(item.amount)) : ""}
               </div>
               {showCost && (
-                <div className="w-24 text-right font-mono text-muted-foreground">
-                  {item.costPrice
-                    ? formatCurrency(Number(item.costPrice))
-                    : ""}
+                <div className="w-24 text-right font-mono text-muted-foreground text-xs shrink-0">
+                  {item.costPrice ? formatCurrency(Number(item.costPrice)) : ""}
                 </div>
               )}
             </>
+          ) : (
+            <>
+              {/* spacer columns */}
+              <div className="w-24 shrink-0" />
+              <div className="w-12 shrink-0" />
+              <div className="w-10 shrink-0" />
+              <div className="w-20 shrink-0" />
+              {/* own amount (if any) */}
+              <div className="w-24 text-right font-mono shrink-0">
+                {hasOwnAmount && (
+                  <span className="text-xs">{formatCurrency(Number(item.amount))}</span>
+                )}
+              </div>
+              {showCost && <div className="w-24 shrink-0" />}
+            </>
           )}
-          {!isDetail && (
-            <div className="font-mono text-sm">
-              小計{" "}
-              {formatCurrency(
-                estimate.items
-                  .filter(
-                    (c) =>
-                      c.parentItemId === item.id ||
-                      estimate.items.some(
-                        (p) =>
-                          p.parentItemId === item.id &&
-                          c.parentItemId === p.id
-                      )
-                  )
-                  .filter((c) => c.level === 4 && !c.isAlternative)
-                  .reduce((sum, c) => sum + Number(c.amount), 0)
-              )}
-            </div>
-          )}
+          {/* section total for header rows */}
+          <div className="w-28 text-right shrink-0">
+            {isHeader && (hasOwnAmount || sectionTotal > 0) && (
+              <span className="text-xs font-mono text-muted-foreground">
+                <span className="text-[10px] mr-0.5">計</span>
+                {formatCurrency(Number(item.amount) + sectionTotal)}
+              </span>
+            )}
+          </div>
         </div>
         {children.map((child) => renderItem(child, depth + 1))}
       </div>
@@ -160,7 +174,7 @@ export default async function EstimateDetailPage({
                 {estimate.customer ? (
                   <Link
                     href={`/customers/${estimate.customer.id}`}
-                    className="text-[#1e3a5f] hover:underline"
+                    className="text-brand hover:underline"
                   >
                     {estimate.customer.name}
                     {estimate.customer.honorific}
@@ -196,17 +210,20 @@ export default async function EstimateDetailPage({
           <CardTitle>見積明細</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="border rounded-lg overflow-hidden">
-            <div className="flex items-center gap-2 py-2 px-2 bg-gray-50 border-b text-xs text-muted-foreground font-medium">
+          <div className="border rounded-lg overflow-hidden overflow-x-auto">
+            <div className="flex items-center gap-2 py-2 px-2 bg-muted border-b text-xs text-muted-foreground font-medium min-w-[560px]">
               <div className="flex-1">品名</div>
-              <div className="w-28">規格</div>
-              <div className="w-16 text-right">数量</div>
-              <div className="w-12">単位</div>
-              <div className="w-24 text-right">単価</div>
-              <div className="w-24 text-right">金額</div>
-              {showCost && <div className="w-24 text-right">原価</div>}
+              <div className="w-24 shrink-0">規格</div>
+              <div className="w-12 text-right shrink-0">数量</div>
+              <div className="w-10 shrink-0">単位</div>
+              <div className="w-20 text-right shrink-0">単価</div>
+              <div className="w-24 text-right shrink-0">金額</div>
+              {showCost && <div className="w-24 text-right shrink-0">原価</div>}
+              <div className="w-28 text-right shrink-0">小計</div>
             </div>
-            {rootItems.map((item) => renderItem(item, 0))}
+            <div className="min-w-[560px]">
+              {rootItems.map((item) => renderItem(item, 0))}
+            </div>
           </div>
         </CardContent>
       </Card>

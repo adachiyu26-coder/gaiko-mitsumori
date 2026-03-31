@@ -192,7 +192,7 @@ export function CompanySettingsForm({ company, isOwner }: Props) {
         <div className="flex justify-end">
           <Button
             type="submit"
-            className="bg-[#1e3a5f] hover:bg-[#162d4a]"
+            className="bg-brand hover:bg-brand-hover"
             disabled={isPending}
           >
             {isPending ? "保存中..." : "設定を保存"}

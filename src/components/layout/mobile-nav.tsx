@@ -5,14 +5,18 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { navItems } from "@/lib/constants/nav";
 
-export function MobileNav() {
+interface MobileNavProps {
+  onClose?: () => void;
+}
+
+export function MobileNav({ onClose }: MobileNavProps) {
   const pathname = usePathname();
 
   return (
     <div className="flex flex-col h-full">
       <div className="flex h-14 items-center border-b px-4">
-        <Link href="/dashboard" className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-lg bg-[#1e3a5f] flex items-center justify-center">
+        <Link href="/dashboard" className="flex items-center gap-2" onClick={onClose}>
+          <div className="h-8 w-8 rounded-lg bg-brand flex items-center justify-center">
             <span className="text-white font-bold text-sm">G</span>
           </div>
           <span className="font-bold text-lg">GAIKO見積</span>
@@ -26,10 +30,11 @@ export function MobileNav() {
             <Link
               key={item.href}
               href={item.href}
+              onClick={onClose}
               className={cn(
                 "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
                 isActive
-                  ? "bg-[#1e3a5f] text-white"
+                  ? "bg-brand text-white"
                   : "text-muted-foreground hover:bg-accent hover:text-foreground"
               )}
             >

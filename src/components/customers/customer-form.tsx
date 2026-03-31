@@ -158,7 +158,7 @@ export function CustomerForm({ defaultValues, isEdit }: CustomerFormProps) {
           </div>
 
           <div className="flex gap-3 justify-end">
-            <Button type="submit" className="bg-[#1e3a5f] hover:bg-[#162d4a]" disabled={isPending}>
+            <Button type="submit" className="bg-brand hover:bg-brand-hover" disabled={isPending}>
               {isPending ? "保存中..." : isEdit ? "更新" : "登録"}
             </Button>
           </div>

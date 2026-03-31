@@ -15,6 +15,14 @@ const pathLabels: Record<string, string> = {
   settings: "設定",
 };
 
+// UUID の直前のセグメントに応じて詳細ページのラベルを決定
+const uuidContextLabels: Record<string, string> = {
+  estimates: "見積詳細",
+  customers: "顧客詳細",
+};
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export function Breadcrumb() {
   const pathname = usePathname();
   const segments = pathname.split("/").filter(Boolean);
@@ -26,14 +34,17 @@ export function Breadcrumb() {
   ];
 
   let accumulated = "";
-  for (const segment of segments) {
+  for (let i = 0; i < segments.length; i++) {
+    const segment = segments[i];
     accumulated += `/${segment}`;
     const label = pathLabels[segment];
     if (label) {
       crumbs.push({ label, href: accumulated });
-    } else if (segment.length === 36 && segment.includes("-")) {
-      // UUID: リソース詳細ページ（ラベルは省略）
-      crumbs.push({ label: "詳細", href: accumulated });
+    } else if (UUID_RE.test(segment)) {
+      // Derive label from the parent segment (e.g., "estimates" → "見積詳細")
+      const parentSegment = segments[i - 1] ?? "";
+      const contextLabel = uuidContextLabels[parentSegment] ?? "詳細";
+      crumbs.push({ label: contextLabel, href: accumulated });
     }
   }
 
@@ -49,7 +60,7 @@ export function Breadcrumb() {
               <Home className="h-3 w-3" />
             </Link>
           ) : i === crumbs.length - 1 ? (
-            <span className="text-foreground font-medium">{crumb.label}</span>
+            <span className="text-foreground font-medium" aria-current="page">{crumb.label}</span>
           ) : (
             <Link href={crumb.href} className="hover:text-foreground transition-colors">
               {crumb.label}

@@ -1,8 +1,8 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -16,6 +16,30 @@ import { formatCurrency } from "@/lib/utils/format";
 export function EstimateSummary() {
   const { totals, expenseRate, discountType, discountValue, taxRate, setOptions } =
     useEstimateEditor();
+
+  const [expenseInput, setExpenseInput] = useState(String(expenseRate));
+  const [discountInput, setDiscountInput] = useState(String(discountValue));
+  const [taxInput, setTaxInput] = useState(String(taxRate));
+
+  // Sync local state when store is reset (e.g., navigating to a different estimate)
+  useEffect(() => { setExpenseInput(String(expenseRate)); }, [expenseRate]);
+  useEffect(() => { setDiscountInput(String(discountValue)); }, [discountValue]);
+  useEffect(() => { setTaxInput(String(taxRate)); }, [taxRate]);
+
+  const commitExpense = (raw: string) => {
+    const val = parseFloat(raw);
+    setOptions({ expenseRate: isNaN(val) ? 0 : val });
+  };
+
+  const commitDiscount = (raw: string) => {
+    const val = parseFloat(raw);
+    setOptions({ discountValue: isNaN(val) ? 0 : val });
+  };
+
+  const commitTax = (raw: string) => {
+    const val = parseFloat(raw);
+    setOptions({ taxRate: isNaN(val) ? 0 : val });
+  };
 
   return (
     <Card>
@@ -35,10 +59,9 @@ export function EstimateSummary() {
             <span className="text-sm">諸経費</span>
             <Input
               type="number"
-              value={expenseRate}
-              onChange={(e) =>
-                setOptions({ expenseRate: parseFloat(e.target.value) || 0 })
-              }
+              value={expenseInput}
+              onChange={(e) => setExpenseInput(e.target.value)}
+              onBlur={(e) => commitExpense(e.target.value)}
               className="h-7 w-16 text-sm text-right"
             />
             <span className="text-xs text-muted-foreground">%</span>
@@ -53,11 +76,12 @@ export function EstimateSummary() {
             <span className="text-sm">値引き</span>
             <Select
               value={discountType}
+              items={{ amount: "円", rate: "%" }}
               onValueChange={(v) =>
                 setOptions({ discountType: (v ?? "amount") as "amount" | "rate" })
               }
             >
-              <SelectTrigger className="h-7 w-16 text-sm">
+              <SelectTrigger className="h-7 w-14 text-sm">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -67,12 +91,9 @@ export function EstimateSummary() {
             </Select>
             <Input
               type="number"
-              value={discountValue}
-              onChange={(e) =>
-                setOptions({
-                  discountValue: parseFloat(e.target.value) || 0,
-                })
-              }
+              value={discountInput}
+              onChange={(e) => setDiscountInput(e.target.value)}
+              onBlur={(e) => commitDiscount(e.target.value)}
               className="h-7 w-24 text-sm text-right"
             />
           </div>
@@ -86,10 +107,9 @@ export function EstimateSummary() {
             <span className="text-sm">消費税</span>
             <Input
               type="number"
-              value={taxRate}
-              onChange={(e) =>
-                setOptions({ taxRate: parseFloat(e.target.value) || 0 })
-              }
+              value={taxInput}
+              onChange={(e) => setTaxInput(e.target.value)}
+              onBlur={(e) => commitTax(e.target.value)}
               className="h-7 w-16 text-sm text-right"
             />
             <span className="text-xs text-muted-foreground">%</span>

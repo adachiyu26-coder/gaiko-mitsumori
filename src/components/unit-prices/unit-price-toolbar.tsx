@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { createUnitPrice, importUnitPricesFromCsv } from "@/app/(dashboard)/master/unit-prices/actions";
+import { ESTIMATE_UNITS } from "@/lib/constants/status";
 import { toast } from "sonner";
 
 interface Props {
@@ -111,7 +112,7 @@ export function UnitPriceToolbar({ canEdit, categories }: Props) {
   return (
     <div className="flex gap-2 flex-wrap">
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogTrigger className="inline-flex items-center justify-center rounded-md bg-[#1e3a5f] hover:bg-[#162d4a] text-white text-sm font-medium px-4 py-2 transition-colors">
+        <DialogTrigger className="inline-flex items-center justify-center rounded-md bg-brand hover:bg-brand-hover text-white text-sm font-medium px-4 py-2 transition-colors">
           <Plus className="mr-2 h-4 w-4" />
           新規登録
         </DialogTrigger>
@@ -169,7 +170,7 @@ export function UnitPriceToolbar({ canEdit, categories }: Props) {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {["㎡", "m", "個", "台", "本", "式", "m3", "人工", "セット"].map(
+                    {ESTIMATE_UNITS.map(
                       (u) => (
                         <SelectItem key={u} value={u}>
                           {u}
@@ -223,7 +224,7 @@ export function UnitPriceToolbar({ canEdit, categories }: Props) {
             <Button
               onClick={handleCreate}
               disabled={isPending || !form.itemName || !form.unitPrice}
-              className="w-full bg-[#1e3a5f] hover:bg-[#162d4a]"
+              className="w-full bg-brand hover:bg-brand-hover"
             >
               {isPending ? "登録中..." : "登録"}
             </Button>

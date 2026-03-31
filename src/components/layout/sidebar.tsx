@@ -12,7 +12,7 @@ export function Sidebar() {
     <aside className="hidden md:flex md:w-60 md:flex-col md:fixed md:inset-y-0 border-r bg-card">
       <div className="flex h-14 items-center border-b px-4">
         <Link href="/dashboard" className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-lg bg-[#1e3a5f] flex items-center justify-center">
+          <div className="h-8 w-8 rounded-lg bg-brand flex items-center justify-center">
             <span className="text-white font-bold text-sm">G</span>
           </div>
           <span className="font-bold text-lg">GAIKO見積</span>
@@ -29,7 +29,7 @@ export function Sidebar() {
               className={cn(
                 "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
                 isActive
-                  ? "bg-[#1e3a5f] text-white"
+                  ? "bg-brand text-white"
                   : "text-muted-foreground hover:bg-accent hover:text-foreground"
               )}
             >

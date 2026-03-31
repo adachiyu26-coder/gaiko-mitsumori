@@ -51,6 +51,7 @@ model User {
   company   Company    @relation(fields: [companyId], references: [id])
   estimates Estimate[]
 
+  @@index([companyId])
   @@map("users")
 }
 
@@ -73,6 +74,7 @@ model Customer {
   company   Company    @relation(fields: [companyId], references: [id])
   estimates Estimate[]
 
+  @@index([companyId])
   @@map("customers")
 }
 
@@ -117,6 +119,10 @@ model Estimate {
   items           EstimateItem[]
 
   @@unique([companyId, estimateNumber, version])
+  @@index([companyId, status])
+  @@index([companyId, createdAt])
+  @@index([customerId])
+  @@index([createdBy])
   @@map("estimates")
 }
 
@@ -147,6 +153,8 @@ model EstimateItem {
   category       Category?        @relation(fields: [categoryId], references: [id])
   unitPriceMaster UnitPriceMaster? @relation(fields: [unitPriceMasterId], references: [id])
 
+  @@index([estimateId, sortOrder])
+  @@index([parentItemId])
   @@map("estimate_items")
 }
 
@@ -170,6 +178,8 @@ model UnitPriceMaster {
   category      Category?      @relation(fields: [categoryId], references: [id])
   estimateItems EstimateItem[]
 
+  @@index([companyId, isActive])
+  @@index([companyId, categoryId])
   @@map("unit_price_master")
 }
 

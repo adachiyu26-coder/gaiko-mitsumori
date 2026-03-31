@@ -160,7 +160,7 @@ export default async function DashboardPage() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>最近の見積</CardTitle>
-          <Link href="/estimates" className="text-sm text-[#1e3a5f] hover:underline">
+          <Link href="/estimates" className="text-sm text-brand hover:underline">
             すべて見る
           </Link>
         </CardHeader>
@@ -168,7 +168,7 @@ export default async function DashboardPage() {
           {recentEstimates.length === 0 ? (
             <p className="text-muted-foreground text-sm py-8 text-center">
               見積がまだありません。
-              <Link href="/estimates/new" className="text-[#1e3a5f] hover:underline ml-1">
+              <Link href="/estimates/new" className="text-brand hover:underline ml-1">
                 最初の見積を作成
               </Link>
             </p>

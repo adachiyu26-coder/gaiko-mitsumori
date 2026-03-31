@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db/prisma";
 import { requireUser, canEditEstimate, canDeleteEstimate } from "@/lib/auth";
 import { generateEstimateNumber } from "@/lib/utils/estimate-number";
 import { recalculateEstimate, calculateItemAmount } from "@/lib/utils/calculate";
+import { VALID_STATUS_TRANSITIONS, type EstimateStatus } from "@/lib/constants/status";
 import type { EstimateItemFormData } from "@/lib/validations/estimate";
 
 export async function createEstimate(data: {
@@ -72,6 +73,7 @@ export async function createEstimate(data: {
       grossProfitRate: totals.grossProfitRate,
       items: {
         create: data.items.map((item, idx) => ({
+          ...(item.id ? { id: item.id } : {}),
           level: item.level,
           parentItemId: item.parentItemId ?? null,
           sortOrder: item.sortOrder ?? idx,
@@ -168,6 +170,7 @@ export async function updateEstimate(
     // Create new items
     await tx.estimateItem.createMany({
       data: data.items.map((item, idx) => ({
+        ...(item.id ? { id: item.id } : {}),
         estimateId,
         level: item.level,
         parentItemId: item.parentItemId ?? null,
@@ -198,6 +201,20 @@ export async function updateEstimateStatus(
   status: string
 ) {
   const user = await requireUser();
+  if (!canEditEstimate(user.role)) throw new Error("権限がありません");
+
+  // Validate status transition
+  const estimate = await prisma.estimate.findUnique({
+    where: { id: estimateId, companyId: user.companyId },
+    select: { status: true },
+  });
+  if (!estimate) throw new Error("見積が見つかりません");
+
+  const currentStatus = estimate.status as EstimateStatus;
+  const allowedNext = VALID_STATUS_TRANSITIONS[currentStatus] ?? [];
+  if (!allowedNext.includes(status as EstimateStatus)) {
+    throw new Error(`「${currentStatus}」から「${status}」への変更はできません`);
+  }
 
   const updateData: Record<string, unknown> = { status };
   if (status === "submitted") updateData.submittedAt = new Date();

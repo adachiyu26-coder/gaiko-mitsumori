@@ -29,6 +29,7 @@ interface EstimateEditorState {
   totals: EstimateTotals;
   isDirty: boolean;
 
+  initEditor: (items: EditorItem[], options: { expenseRate: number; discountType: "amount" | "rate"; discountValue: number; taxRate: number }) => void;
   setItems: (items: EditorItem[]) => void;
   setOptions: (opts: Partial<{ expenseRate: number; discountType: "amount" | "rate"; discountValue: number; taxRate: number }>) => void;
   addItem: (item: EditorItem) => void;
@@ -64,6 +65,11 @@ export const useEstimateEditor = create<EstimateEditorState>((set, get) => ({
   totals: emptyTotals,
   isDirty: false,
 
+  initEditor: (items, options) => {
+    set({ items, ...options, isDirty: false });
+    get().recalculate();
+  },
+
   setItems: (items) => {
     set({ items });
     get().recalculate();
@@ -98,12 +104,15 @@ export const useEstimateEditor = create<EstimateEditorState>((set, get) => ({
   },
 
   removeItem: (id) => {
-    set((s) => ({
-      items: s.items.filter(
-        (item) => item.id !== id && item.parentItemId !== id
-      ),
-      isDirty: true,
-    }));
+    set((s) => {
+      const toRemove = new Set<string>();
+      const collect = (itemId: string) => {
+        toRemove.add(itemId);
+        s.items.filter((i) => i.parentItemId === itemId).forEach((child) => collect(child.id));
+      };
+      collect(id);
+      return { items: s.items.filter((item) => !toRemove.has(item.id)), isDirty: true };
+    });
     get().recalculate();
   },
 

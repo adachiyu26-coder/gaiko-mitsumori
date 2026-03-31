@@ -41,7 +41,7 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <div className="mx-auto mb-4 h-12 w-12 rounded-xl bg-[#1e3a5f] flex items-center justify-center">
+          <div className="mx-auto mb-4 h-12 w-12 rounded-xl bg-brand flex items-center justify-center">
             <span className="text-white font-bold text-xl">G</span>
           </div>
           <CardTitle className="text-2xl">GAIKO見積</CardTitle>
@@ -75,13 +75,13 @@ export default function LoginPage() {
             {error && (
               <p className="text-sm text-destructive">{error}</p>
             )}
-            <Button type="submit" className="w-full bg-[#1e3a5f] hover:bg-[#162d4a]" disabled={loading}>
+            <Button type="submit" className="w-full bg-brand hover:bg-brand-hover" disabled={loading}>
               {loading ? "ログイン中..." : "ログイン"}
             </Button>
           </form>
           <p className="mt-4 text-center text-sm text-muted-foreground">
             アカウントをお持ちでない方は{" "}
-            <Link href="/signup" className="text-[#1e3a5f] hover:underline">
+            <Link href="/signup" className="text-brand hover:underline">
               新規登録
             </Link>
           </p>

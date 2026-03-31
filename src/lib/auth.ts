@@ -106,3 +106,11 @@ export function canManageUsers(role: string): boolean {
 export function canEditUnitPriceMaster(role: string): boolean {
   return role === "owner" || role === "manager";
 }
+
+export function canEditCustomer(role: string): boolean {
+  return role !== "viewer";
+}
+
+export function canDeleteCustomer(role: string): boolean {
+  return role === "owner" || role === "manager";
+}

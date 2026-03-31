@@ -22,19 +22,9 @@ import {
 } from "@/components/ui/table";
 import { Plus, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils/format";
+import { ESTIMATE_STATUS_CONFIG, PAGE_SIZE } from "@/lib/constants/status";
 
-const statusConfig: Record<
-  string,
-  { label: string; variant: "default" | "secondary" | "destructive" | "outline" }
-> = {
-  draft: { label: "作成中", variant: "secondary" },
-  submitted: { label: "提出済", variant: "default" },
-  accepted: { label: "受注", variant: "outline" },
-  rejected: { label: "失注", variant: "destructive" },
-  expired: { label: "期限切れ", variant: "secondary" },
-};
-
-const PAGE_SIZE = 20;
+const statusConfig = ESTIMATE_STATUS_CONFIG;
 
 export default async function EstimatesPage({
   searchParams,
@@ -91,7 +81,7 @@ export default async function EstimatesPage({
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">見積一覧</h1>
         <Link href="/estimates/new">
-          <Button className="bg-[#1e3a5f] hover:bg-[#162d4a]">
+          <Button className="bg-brand hover:bg-brand-hover">
             <Plus className="mr-2 h-4 w-4" />
             新規見積
           </Button>
@@ -99,8 +89,8 @@ export default async function EstimatesPage({
       </div>
 
       {/* 検索・フィルター */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <form className="flex flex-1 gap-2" action="/estimates" method="GET">
+      <div className="flex flex-col gap-3">
+        <form className="flex gap-2" action="/estimates" method="GET">
           {params.status && params.status !== "all" && (
             <input type="hidden" name="status" value={params.status} />
           )}
@@ -115,16 +105,16 @@ export default async function EstimatesPage({
           </div>
           <Button type="submit" variant="outline">検索</Button>
         </form>
-        <div className="flex gap-2">
+        <div className="flex gap-2 overflow-x-auto pb-1">
           {["all", "draft", "submitted", "accepted", "rejected", "expired"].map((s) => {
-            const label = s === "all" ? "すべて" : statusConfig[s]?.label ?? s;
+            const label = s === "all" ? "すべて" : statusConfig[s as keyof typeof statusConfig]?.label ?? s;
             const isActive = (params.status ?? "all") === s;
             return (
-              <Link key={s} href={buildUrl({ status: s, page: 1 })}>
+              <Link key={s} href={buildUrl({ status: s, page: 1 })} className="flex-shrink-0">
                 <Button
                   variant={isActive ? "default" : "outline"}
                   size="sm"
-                  className={isActive ? "bg-[#1e3a5f] hover:bg-[#162d4a]" : ""}
+                  className={isActive ? "bg-brand hover:bg-brand-hover" : ""}
                 >
                   {label}
                 </Button>
@@ -147,7 +137,7 @@ export default async function EstimatesPage({
             <p className="text-muted-foreground text-sm py-8 text-center">
               {q || status ? "条件に一致する見積がありません。" : "見積がまだありません。"}
               {!q && !status && (
-                <Link href="/estimates/new" className="text-[#1e3a5f] hover:underline ml-1">
+                <Link href="/estimates/new" className="text-brand hover:underline ml-1">
                   最初の見積を作成
                 </Link>
               )}
@@ -169,13 +159,13 @@ export default async function EstimatesPage({
                   </TableHeader>
                   <TableBody>
                     {estimates.map((estimate) => {
-                      const s = statusConfig[estimate.status] ?? statusConfig.draft;
+                      const s = statusConfig[estimate.status as keyof typeof statusConfig] ?? statusConfig.draft;
                       return (
                         <TableRow key={estimate.id}>
                           <TableCell className="font-mono text-xs">
                             <Link
                               href={`/estimates/${estimate.id}`}
-                              className="text-[#1e3a5f] hover:underline"
+                              className="text-brand hover:underline"
                             >
                               {estimate.estimateNumber}
                             </Link>
