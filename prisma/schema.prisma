@@ -1,0 +1,231 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Company {
+  id                   String   @id @default(uuid()) @db.Uuid
+  name                 String   @db.VarChar(100)
+  nameKana             String?  @map("name_kana") @db.VarChar(100)
+  abbreviation         String?  @db.VarChar(10)
+  postalCode           String?  @map("postal_code") @db.VarChar(8)
+  address              String?
+  phone                String?  @db.VarChar(20)
+  fax                  String?  @db.VarChar(20)
+  email                String?  @db.VarChar(255)
+  website              String?  @db.VarChar(255)
+  logoUrl              String?  @map("logo_url")
+  sealUrl              String?  @map("seal_url")
+  registrationNumber   String?  @map("registration_number") @db.VarChar(20)
+  defaultTaxRate       Decimal  @default(10.00) @map("default_tax_rate") @db.Decimal(5, 2)
+  defaultExpenseRate   Decimal  @default(10.00) @map("default_expense_rate") @db.Decimal(5, 2)
+  estimateValidityDays Int      @default(30) @map("estimate_validity_days")
+  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt            DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  users           User[]
+  customers       Customer[]
+  estimates       Estimate[]
+  unitPriceMaster UnitPriceMaster[]
+  categories      Category[]
+  templates       Template[]
+
+  @@map("companies")
+}
+
+model User {
+  id        String   @id @default(uuid()) @db.Uuid
+  companyId String   @map("company_id") @db.Uuid
+  name      String   @db.VarChar(50)
+  nameKana  String?  @map("name_kana") @db.VarChar(50)
+  email     String   @unique @db.VarChar(255)
+  role      String   @default("staff") @db.VarChar(20)
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  company   Company    @relation(fields: [companyId], references: [id])
+  estimates Estimate[]
+
+  @@map("users")
+}
+
+model Customer {
+  id             String   @id @default(uuid()) @db.Uuid
+  companyId      String   @map("company_id") @db.Uuid
+  customerType   String   @default("individual") @map("customer_type") @db.VarChar(20)
+  name           String   @db.VarChar(100)
+  nameKana       String?  @map("name_kana") @db.VarChar(100)
+  honorific      String   @default("\u69D8") @db.VarChar(10)
+  postalCode     String?  @map("postal_code") @db.VarChar(8)
+  address        String?
+  phone          String?  @db.VarChar(20)
+  email          String?  @db.VarChar(255)
+  referralSource String?  @map("referral_source") @db.VarChar(100)
+  note           String?
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  company   Company    @relation(fields: [companyId], references: [id])
+  estimates Estimate[]
+
+  @@map("customers")
+}
+
+model Estimate {
+  id                String    @id @default(uuid()) @db.Uuid
+  companyId         String    @map("company_id") @db.Uuid
+  customerId        String?   @map("customer_id") @db.Uuid
+  createdBy         String    @map("created_by") @db.Uuid
+  estimateNumber    String    @map("estimate_number") @db.VarChar(30)
+  version           Int       @default(1)
+  parentEstimateId  String?   @map("parent_estimate_id") @db.Uuid
+  title             String    @db.VarChar(200)
+  siteAddress       String?   @map("site_address")
+  estimateDate      DateTime  @default(now()) @map("estimate_date") @db.Date
+  expiryDate        DateTime? @map("expiry_date") @db.Date
+  status            String    @default("draft") @db.VarChar(20)
+  subtotal          Decimal   @default(0) @db.Decimal(12, 0)
+  expenseRate       Decimal   @default(10.00) @map("expense_rate") @db.Decimal(5, 2)
+  expenseAmount     Decimal   @default(0) @map("expense_amount") @db.Decimal(12, 0)
+  discountType      String    @default("amount") @map("discount_type") @db.VarChar(10)
+  discountValue     Decimal   @default(0) @map("discount_value") @db.Decimal(12, 2)
+  discountAmount    Decimal   @default(0) @map("discount_amount") @db.Decimal(12, 0)
+  taxRate           Decimal   @default(10.00) @map("tax_rate") @db.Decimal(5, 2)
+  taxAmount         Decimal   @default(0) @map("tax_amount") @db.Decimal(12, 0)
+  totalAmount       Decimal   @default(0) @map("total_amount") @db.Decimal(12, 0)
+  costSubtotal      Decimal   @default(0) @map("cost_subtotal") @db.Decimal(12, 0)
+  grossProfit       Decimal   @default(0) @map("gross_profit") @db.Decimal(12, 0)
+  grossProfitRate   Decimal   @default(0) @map("gross_profit_rate") @db.Decimal(5, 2)
+  note              String?
+  internalMemo      String?   @map("internal_memo")
+  paymentTerms      String?   @map("payment_terms")
+  submittedAt       DateTime? @map("submitted_at") @db.Timestamptz
+  acceptedAt        DateTime? @map("accepted_at") @db.Timestamptz
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  company         Company         @relation(fields: [companyId], references: [id])
+  customer        Customer?       @relation(fields: [customerId], references: [id])
+  creator         User            @relation(fields: [createdBy], references: [id])
+  parentEstimate  Estimate?       @relation("EstimateVersions", fields: [parentEstimateId], references: [id])
+  childEstimates  Estimate[]      @relation("EstimateVersions")
+  items           EstimateItem[]
+
+  @@unique([companyId, estimateNumber, version])
+  @@map("estimates")
+}
+
+model EstimateItem {
+  id                String   @id @default(uuid()) @db.Uuid
+  estimateId        String   @map("estimate_id") @db.Uuid
+  parentItemId      String?  @map("parent_item_id") @db.Uuid
+  level             Int
+  sortOrder         Int      @default(0) @map("sort_order")
+  itemName          String   @map("item_name") @db.VarChar(200)
+  specification     String?  @db.VarChar(500)
+  quantity          Decimal? @db.Decimal(10, 2)
+  unit              String?  @db.VarChar(10)
+  unitPrice         Decimal? @map("unit_price") @db.Decimal(12, 0)
+  costPrice         Decimal? @map("cost_price") @db.Decimal(12, 0)
+  amount            Decimal  @default(0) @db.Decimal(12, 0)
+  costAmount        Decimal  @default(0) @map("cost_amount") @db.Decimal(12, 0)
+  categoryId        String?  @map("category_id") @db.Uuid
+  unitPriceMasterId String?  @map("unit_price_master_id") @db.Uuid
+  note              String?
+  isAlternative     Boolean  @default(false) @map("is_alternative")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  estimate       Estimate         @relation(fields: [estimateId], references: [id], onDelete: Cascade)
+  parentItem     EstimateItem?    @relation("ItemTree", fields: [parentItemId], references: [id], onDelete: Cascade)
+  childItems     EstimateItem[]   @relation("ItemTree")
+  category       Category?        @relation(fields: [categoryId], references: [id])
+  unitPriceMaster UnitPriceMaster? @relation(fields: [unitPriceMasterId], references: [id])
+
+  @@map("estimate_items")
+}
+
+model UnitPriceMaster {
+  id            String   @id @default(uuid()) @db.Uuid
+  companyId     String   @map("company_id") @db.Uuid
+  categoryId    String?  @map("category_id") @db.Uuid
+  itemName      String   @map("item_name") @db.VarChar(200)
+  specification String?  @db.VarChar(500)
+  unit          String   @db.VarChar(10)
+  unitPrice     Decimal  @map("unit_price") @db.Decimal(12, 0)
+  costPrice     Decimal? @map("cost_price") @db.Decimal(12, 0)
+  manufacturer  String?  @db.VarChar(100)
+  modelNumber   String?  @map("model_number") @db.VarChar(100)
+  isActive      Boolean  @default(true) @map("is_active")
+  note          String?
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  company       Company        @relation(fields: [companyId], references: [id])
+  category      Category?      @relation(fields: [categoryId], references: [id])
+  estimateItems EstimateItem[]
+
+  @@map("unit_price_master")
+}
+
+model Category {
+  id        String   @id @default(uuid()) @db.Uuid
+  companyId String?  @map("company_id") @db.Uuid
+  name      String   @db.VarChar(50)
+  sortOrder Int      @default(0) @map("sort_order")
+  isSystem  Boolean  @default(false) @map("is_system")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  company         Company?          @relation(fields: [companyId], references: [id])
+  estimateItems   EstimateItem[]
+  unitPriceMaster UnitPriceMaster[]
+  templateItems   TemplateItem[]
+
+  @@map("categories")
+}
+
+model Template {
+  id          String   @id @default(uuid()) @db.Uuid
+  companyId   String   @map("company_id") @db.Uuid
+  createdBy   String   @map("created_by") @db.Uuid
+  name        String   @db.VarChar(200)
+  description String?
+  isShared    Boolean  @default(false) @map("is_shared")
+  isSystem    Boolean  @default(false) @map("is_system")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  company Company        @relation(fields: [companyId], references: [id])
+  items   TemplateItem[]
+
+  @@map("templates")
+}
+
+model TemplateItem {
+  id           String   @id @default(uuid()) @db.Uuid
+  templateId   String   @map("template_id") @db.Uuid
+  parentItemId String?  @map("parent_item_id") @db.Uuid
+  level        Int
+  sortOrder    Int      @default(0) @map("sort_order")
+  itemName     String   @map("item_name") @db.VarChar(200)
+  specification String? @db.VarChar(500)
+  quantity     Decimal? @db.Decimal(10, 2)
+  unit         String?  @db.VarChar(10)
+  unitPrice    Decimal? @map("unit_price") @db.Decimal(12, 0)
+  costPrice    Decimal? @map("cost_price") @db.Decimal(12, 0)
+  categoryId   String?  @map("category_id") @db.Uuid
+  note         String?
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  template   Template      @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  parentItem TemplateItem? @relation("TemplateItemTree", fields: [parentItemId], references: [id], onDelete: Cascade)
+  childItems TemplateItem[] @relation("TemplateItemTree")
+  category   Category?     @relation(fields: [categoryId], references: [id])
+
+  @@map("template_items")
+}
