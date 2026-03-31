@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 
-export async function middleware(request: NextRequest) {
-  // Dev mode: skip auth middleware
+export async function proxy(request: NextRequest) {
+  // Dev mode: skip auth proxy
   if (process.env.DEV_BYPASS_AUTH === "true") {
     return NextResponse.next();
   }

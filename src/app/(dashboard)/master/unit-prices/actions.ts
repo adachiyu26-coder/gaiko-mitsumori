@@ -30,6 +30,18 @@ export async function updateUnitPrice(id: string, data: UnitPriceFormData) {
   revalidatePath("/master/unit-prices");
 }
 
+export async function toggleUnitPriceActive(id: string, isActive: boolean) {
+  const user = await requireUser();
+  if (!canEditUnitPriceMaster(user.role)) throw new Error("Permission denied");
+
+  await prisma.unitPriceMaster.update({
+    where: { id, companyId: user.companyId },
+    data: { isActive },
+  });
+
+  revalidatePath("/master/unit-prices");
+}
+
 export async function deleteUnitPrice(id: string) {
   const user = await requireUser();
   if (!canEditUnitPriceMaster(user.role)) throw new Error("Permission denied");
@@ -71,8 +83,8 @@ export async function importUnitPricesFromCsv(csvText: string) {
       itemName: cols[nameIdx],
       specification: specIdx >= 0 ? cols[specIdx] || null : null,
       unit: cols[unitIdx] || "式",
-      unitPrice: parseInt(cols[priceIdx]) || 0,
-      costPrice: costIdx >= 0 ? parseInt(cols[costIdx]) || null : null,
+      unitPrice: Math.floor(parseFloat(cols[priceIdx])) || 0,
+      costPrice: costIdx >= 0 ? (parseFloat(cols[costIdx]) ? Math.floor(parseFloat(cols[costIdx])) : null) : null,
       manufacturer: mfgIdx >= 0 ? cols[mfgIdx] || null : null,
       modelNumber: modelIdx >= 0 ? cols[modelIdx] || null : null,
     });

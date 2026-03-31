@@ -4,6 +4,44 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db/prisma";
 import { requireUser, canManageUsers } from "@/lib/auth";
 
+export async function updateUserRole(userId: string, role: string) {
+  const user = await requireUser();
+  if (!canManageUsers(user.role)) throw new Error("Permission denied");
+  if (userId === user.id) throw new Error("自分自身のロールは変更できません");
+
+  await prisma.user.update({
+    where: { id: userId, companyId: user.companyId },
+    data: { role },
+  });
+
+  revalidatePath("/settings");
+}
+
+export async function deactivateUser(userId: string) {
+  const user = await requireUser();
+  if (!canManageUsers(user.role)) throw new Error("Permission denied");
+  if (userId === user.id) throw new Error("自分自身は無効にできません");
+
+  await prisma.user.update({
+    where: { id: userId, companyId: user.companyId },
+    data: { isActive: false },
+  });
+
+  revalidatePath("/settings");
+}
+
+export async function activateUser(userId: string) {
+  const user = await requireUser();
+  if (!canManageUsers(user.role)) throw new Error("Permission denied");
+
+  await prisma.user.update({
+    where: { id: userId, companyId: user.companyId },
+    data: { isActive: true },
+  });
+
+  revalidatePath("/settings");
+}
+
 export async function updateCompanySettings(data: {
   id: string;
   name: string;

@@ -2,16 +2,19 @@ import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db/prisma";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { FileText, Users, TrendingUp, Percent } from "lucide-react";
+import { FileText, TrendingUp, Percent, CheckCircle2 } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils/format";
 import Link from "next/link";
 
-const statusLabels: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
-  draft: { label: "作成中", variant: "secondary" },
-  submitted: { label: "提出済", variant: "default" },
-  accepted: { label: "受注", variant: "outline" },
-  rejected: { label: "失注", variant: "destructive" },
-  expired: { label: "期限切れ", variant: "secondary" },
+const statusConfig: Record<
+  string,
+  { label: string; variant: "default" | "secondary" | "destructive" | "outline"; color: string }
+> = {
+  draft: { label: "作成中", variant: "secondary", color: "bg-gray-100 text-gray-700" },
+  submitted: { label: "提出済", variant: "default", color: "bg-blue-100 text-blue-700" },
+  accepted: { label: "受注", variant: "outline", color: "bg-green-100 text-green-700" },
+  rejected: { label: "失注", variant: "destructive", color: "bg-red-100 text-red-700" },
+  expired: { label: "期限切れ", variant: "secondary", color: "bg-yellow-100 text-yellow-700" },
 };
 
 export default async function DashboardPage() {
@@ -21,43 +24,50 @@ export default async function DashboardPage() {
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  const [estimateCount, totalAmount, acceptedCount, recentEstimates, allMonthEstimates] =
-    await Promise.all([
-      prisma.estimate.count({
-        where: { companyId, createdAt: { gte: startOfMonth } },
-      }),
-      prisma.estimate.aggregate({
-        where: { companyId, createdAt: { gte: startOfMonth } },
-        _sum: { totalAmount: true },
-      }),
-      prisma.estimate.count({
-        where: {
-          companyId,
-          status: "accepted",
-          createdAt: { gte: startOfMonth },
-        },
-      }),
-      prisma.estimate.findMany({
-        where: { companyId },
-        include: { customer: true },
-        orderBy: { createdAt: "desc" },
-        take: 10,
-      }),
-      prisma.estimate.findMany({
-        where: { companyId, createdAt: { gte: startOfMonth } },
-        select: { grossProfitRate: true },
-      }),
-    ]);
+  const [
+    estimateCount,
+    totalAmount,
+    acceptedCount,
+    recentEstimates,
+    allMonthEstimates,
+    pipelineData,
+  ] = await Promise.all([
+    prisma.estimate.count({
+      where: { companyId, createdAt: { gte: startOfMonth } },
+    }),
+    prisma.estimate.aggregate({
+      where: { companyId, createdAt: { gte: startOfMonth } },
+      _sum: { totalAmount: true },
+    }),
+    prisma.estimate.count({
+      where: { companyId, status: "accepted", createdAt: { gte: startOfMonth } },
+    }),
+    prisma.estimate.findMany({
+      where: { companyId },
+      include: { customer: true },
+      orderBy: { createdAt: "desc" },
+      take: 10,
+    }),
+    prisma.estimate.findMany({
+      where: { companyId, createdAt: { gte: startOfMonth } },
+      select: { grossProfitRate: true },
+    }),
+    prisma.estimate.groupBy({
+      by: ["status"],
+      where: { companyId },
+      _count: { _all: true },
+      _sum: { totalAmount: true },
+    }),
+  ]);
 
   const acceptanceRate =
     estimateCount > 0 ? Math.round((acceptedCount / estimateCount) * 100) : 0;
   const avgProfitRate =
     allMonthEstimates.length > 0
       ? Math.round(
-          allMonthEstimates.reduce(
-            (sum, e) => sum + Number(e.grossProfitRate),
-            0
-          ) / allMonthEstimates.length * 10
+          (allMonthEstimates.reduce((sum, e) => sum + Number(e.grossProfitRate), 0) /
+            allMonthEstimates.length) *
+            10
         ) / 10
       : 0;
 
@@ -68,26 +78,37 @@ export default async function DashboardPage() {
       icon: FileText,
     },
     {
-      title: "見積総額",
+      title: "今月見積総額",
       value: formatCurrency(Number(totalAmount._sum.totalAmount ?? 0)),
       icon: TrendingUp,
     },
     {
-      title: "受注率",
+      title: "今月受注率",
       value: `${acceptanceRate}%`,
-      icon: Users,
+      icon: CheckCircle2,
     },
     {
-      title: "平均粗利率",
+      title: "今月平均粗利率",
       value: `${avgProfitRate}%`,
       icon: Percent,
     },
   ];
 
+  // パイプライン: 全ステータスを表示
+  const pipeline = ["draft", "submitted", "accepted", "rejected", "expired"].map((status) => {
+    const found = pipelineData.find((d) => d.status === status);
+    return {
+      status,
+      count: found?._count._all ?? 0,
+      amount: Number(found?._sum.totalAmount ?? 0),
+    };
+  });
+
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">ダッシュボード</h1>
 
+      {/* KPI カード */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {kpiCards.map((card) => (
           <Card key={card.title}>
@@ -104,9 +125,44 @@ export default async function DashboardPage() {
         ))}
       </div>
 
+      {/* パイプライン（ステータス別件数） */}
       <Card>
         <CardHeader>
+          <CardTitle>見積パイプライン（全期間）</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            {pipeline.map(({ status, count, amount }) => {
+              const cfg = statusConfig[status] ?? statusConfig.draft;
+              return (
+                <Link
+                  key={status}
+                  href={`/estimates?status=${status}`}
+                  className="rounded-lg border p-4 hover:bg-accent transition-colors"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${cfg.color}`}>
+                      {cfg.label}
+                    </span>
+                    <span className="text-2xl font-bold">{count}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground text-right">
+                    {formatCurrency(amount)}
+                  </p>
+                </Link>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 最近の見積 */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>最近の見積</CardTitle>
+          <Link href="/estimates" className="text-sm text-[#1e3a5f] hover:underline">
+            すべて見る
+          </Link>
         </CardHeader>
         <CardContent>
           {recentEstimates.length === 0 ? (
@@ -119,7 +175,7 @@ export default async function DashboardPage() {
           ) : (
             <div className="space-y-3">
               {recentEstimates.map((estimate) => {
-                const s = statusLabels[estimate.status] ?? statusLabels.draft;
+                const s = statusConfig[estimate.status] ?? statusConfig.draft;
                 return (
                   <Link
                     key={estimate.id}

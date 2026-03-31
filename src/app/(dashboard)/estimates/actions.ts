@@ -73,6 +73,7 @@ export async function createEstimate(data: {
       items: {
         create: data.items.map((item, idx) => ({
           level: item.level,
+          parentItemId: item.parentItemId ?? null,
           sortOrder: item.sortOrder ?? idx,
           itemName: item.itemName,
           specification: item.specification || null,
@@ -169,6 +170,7 @@ export async function updateEstimate(
       data: data.items.map((item, idx) => ({
         estimateId,
         level: item.level,
+        parentItemId: item.parentItemId ?? null,
         sortOrder: item.sortOrder ?? idx,
         itemName: item.itemName,
         specification: item.specification || null,
@@ -269,6 +271,7 @@ export async function duplicateEstimate(estimateId: string) {
       items: {
         create: original.items.map((item) => ({
           level: item.level,
+          parentItemId: item.parentItemId,
           sortOrder: item.sortOrder,
           itemName: item.itemName,
           specification: item.specification,
@@ -279,6 +282,7 @@ export async function duplicateEstimate(estimateId: string) {
           amount: item.amount,
           costAmount: item.costAmount,
           categoryId: item.categoryId,
+          unitPriceMasterId: item.unitPriceMasterId,
           note: item.note,
           isAlternative: item.isAlternative,
         })),

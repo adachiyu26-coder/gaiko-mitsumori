@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus, Trash2, ChevronRight, ChevronDown } from "lucide-react";
+import { Plus, Trash2, ChevronRight, ChevronDown, GitBranch } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -94,7 +94,8 @@ export function EstimateItemTree({ showCostPrice }: Props) {
         <div
           className={cn(
             "flex items-center gap-2 py-1.5 px-2 rounded group hover:bg-gray-50 border-b",
-            LEVEL_COLORS[item.level]
+            LEVEL_COLORS[item.level],
+            item.level === 4 && item.isAlternative && "bg-amber-50 border-amber-200 opacity-75"
           )}
           style={{ paddingLeft: `${indent + 8}px` }}
         >
@@ -203,6 +204,23 @@ export function EstimateItemTree({ showCostPrice }: Props) {
             <div className="text-sm font-mono mr-2">
               小計 {formatCurrency(getSubtotal(item.id))}
             </div>
+          )}
+
+          {/* Alternative flag for level 4 */}
+          {item.level === 4 && (
+            <button
+              type="button"
+              onClick={() => updateItem(item.id, { isAlternative: !item.isAlternative })}
+              title={item.isAlternative ? "代替案（クリックで通常に戻す）" : "通常（クリックで代替案にする）"}
+              className={cn(
+                "h-7 w-7 flex items-center justify-center rounded text-xs flex-shrink-0 transition-colors",
+                item.isAlternative
+                  ? "bg-amber-200 text-amber-700 hover:bg-amber-300"
+                  : "text-muted-foreground hover:text-amber-600 hover:bg-amber-50"
+              )}
+            >
+              <GitBranch className="h-3 w-3" />
+            </button>
           )}
 
           {/* Add child / delete */}

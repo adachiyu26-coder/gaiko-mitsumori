@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useTransition, useState } from "react";
+import { useEffect, useTransition, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -56,6 +56,12 @@ export function EstimateForm({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const store = useEstimateEditor();
+  const [isDirty, setIsDirty] = useState(false);
+
+  const updateHeader = (updates: Partial<typeof header>) => {
+    setHeader((prev) => ({ ...prev, ...updates }));
+    setIsDirty(true);
+  };
 
   const [header, setHeader] = useState({
     title: defaultValues?.title ?? "",
@@ -83,6 +89,21 @@ export function EstimateForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // 未保存変更の警告
+  const handleBeforeUnload = useCallback(
+    (e: BeforeUnloadEvent) => {
+      if (isDirty) {
+        e.preventDefault();
+      }
+    },
+    [isDirty]
+  );
+
+  useEffect(() => {
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [handleBeforeUnload]);
+
   const handleSave = () => {
     if (!header.title) {
       toast.error("件名を入力してください");
@@ -106,7 +127,8 @@ export function EstimateForm({
           paymentTerms: header.paymentTerms || null,
           items: store.items.map((item, idx) => ({
             level: item.level,
-            sortOrder: idx,
+            parentItemId: item.parentItemId ?? null,
+            sortOrder: item.sortOrder ?? idx,
             itemName: item.itemName,
             specification: item.specification,
             quantity: item.quantity,
@@ -124,9 +146,11 @@ export function EstimateForm({
           await updateEstimate(estimateId, payload);
           toast.success("見積を保存しました");
           store.setDirty(false);
+          setIsDirty(false);
         } else {
           await createEstimate(payload);
           toast.success("見積を作成しました");
+          setIsDirty(false);
         }
       } catch {
         toast.error("保存に失敗しました");

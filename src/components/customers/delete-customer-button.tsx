@@ -3,6 +3,17 @@
 import { useTransition } from "react";
 import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { deleteCustomer } from "@/app/(dashboard)/customers/actions";
 import { toast } from "sonner";
 
@@ -10,7 +21,6 @@ export function DeleteCustomerButton({ customerId }: { customerId: string }) {
   const [isPending, startTransition] = useTransition();
 
   const handleDelete = () => {
-    if (!confirm("この顧客を削除しますか？関連する見積は保持されます。")) return;
     startTransition(async () => {
       try {
         await deleteCustomer(customerId);
@@ -22,14 +32,30 @@ export function DeleteCustomerButton({ customerId }: { customerId: string }) {
   };
 
   return (
-    <Button
-      variant="destructive"
-      size="sm"
-      onClick={handleDelete}
-      disabled={isPending}
-    >
-      <Trash2 className="mr-2 h-4 w-4" />
-      削除
-    </Button>
+    <AlertDialog>
+      <AlertDialogTrigger>
+        <Button variant="destructive" size="sm" disabled={isPending}>
+          <Trash2 className="mr-2 h-4 w-4" />
+          削除
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>顧客を削除しますか？</AlertDialogTitle>
+          <AlertDialogDescription>
+            この操作は取り消せません。関連する見積データは保持されます。
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>キャンセル</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={handleDelete}
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+          >
+            削除する
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }

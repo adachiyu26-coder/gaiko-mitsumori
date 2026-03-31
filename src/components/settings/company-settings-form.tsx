@@ -2,6 +2,8 @@
 
 import { useTransition } from "react";
 import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,31 +11,58 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { updateCompanySettings } from "./actions";
 
+const companySettingsSchema = z.object({
+  id: z.string(),
+  name: z.string().min(1, "会社名は必須です"),
+  nameKana: z.string().nullable().optional(),
+  abbreviation: z.string().max(10, "略称は10文字以内で入力してください").nullable().optional(),
+  postalCode: z
+    .string()
+    .regex(/^(\d{3}-?\d{4})?$/, "郵便番号の形式が正しくありません（例: 123-4567）")
+    .nullable()
+    .optional()
+    .or(z.literal("")),
+  address: z.string().nullable().optional(),
+  phone: z.string().nullable().optional(),
+  fax: z.string().nullable().optional(),
+  email: z.string().email("メールアドレスの形式が正しくありません").nullable().optional().or(z.literal("")),
+  website: z.string().nullable().optional(),
+  registrationNumber: z
+    .string()
+    .regex(/^(T\d{13})?$/, "登録番号の形式が正しくありません（例: T1234567890123）")
+    .nullable()
+    .optional()
+    .or(z.literal("")),
+  defaultTaxRate: z
+    .number()
+    .min(0, "0以上で入力してください")
+    .max(100, "100以下で入力してください"),
+  defaultExpenseRate: z
+    .number()
+    .min(0, "0以上で入力してください")
+    .max(100, "100以下で入力してください"),
+  estimateValidityDays: z
+    .number()
+    .int("整数で入力してください")
+    .min(1, "1以上で入力してください")
+    .max(365, "365以下で入力してください"),
+});
+
+type CompanySettingsFormData = z.infer<typeof companySettingsSchema>;
+
 interface Props {
-  company: {
-    id: string;
-    name: string;
-    nameKana: string | null;
-    abbreviation: string | null;
-    postalCode: string | null;
-    address: string | null;
-    phone: string | null;
-    fax: string | null;
-    email: string | null;
-    website: string | null;
-    registrationNumber: string | null;
-    defaultTaxRate: number;
-    defaultExpenseRate: number;
-    estimateValidityDays: number;
-  };
+  company: CompanySettingsFormData;
   isOwner: boolean;
 }
 
 export function CompanySettingsForm({ company, isOwner }: Props) {
   const [isPending, startTransition] = useTransition();
-  const form = useForm({ defaultValues: company });
+  const form = useForm<CompanySettingsFormData>({
+    resolver: zodResolver(companySettingsSchema),
+    defaultValues: company,
+  });
 
-  const onSubmit = (data: typeof company) => {
+  const onSubmit = (data: CompanySettingsFormData) => {
     startTransition(async () => {
       try {
         await updateCompanySettings(data);
@@ -44,6 +73,8 @@ export function CompanySettingsForm({ company, isOwner }: Props) {
     });
   };
 
+  const err = form.formState.errors;
+
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
       <Card>
@@ -53,18 +84,21 @@ export function CompanySettingsForm({ company, isOwner }: Props) {
         <CardContent className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <Label>会社名</Label>
+              <Label>会社名 *</Label>
               <Input {...form.register("name")} disabled={!isOwner} />
+              {err.name && <p className="text-sm text-destructive">{err.name.message}</p>}
             </div>
             <div className="space-y-2">
               <Label>略称（見積番号用）</Label>
               <Input {...form.register("abbreviation")} disabled={!isOwner} />
+              {err.abbreviation && <p className="text-sm text-destructive">{err.abbreviation.message}</p>}
             </div>
           </div>
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label>郵便番号</Label>
-              <Input {...form.register("postalCode")} disabled={!isOwner} />
+              <Input {...form.register("postalCode")} placeholder="123-4567" disabled={!isOwner} />
+              {err.postalCode && <p className="text-sm text-destructive">{err.postalCode.message}</p>}
             </div>
             <div className="space-y-2">
               <Label>電話番号</Label>
@@ -82,7 +116,8 @@ export function CompanySettingsForm({ company, isOwner }: Props) {
             </div>
             <div className="space-y-2">
               <Label>メール</Label>
-              <Input {...form.register("email")} disabled={!isOwner} />
+              <Input {...form.register("email")} type="email" disabled={!isOwner} />
+              {err.email && <p className="text-sm text-destructive">{err.email.message}</p>}
             </div>
           </div>
           <div className="space-y-2">
@@ -92,6 +127,9 @@ export function CompanySettingsForm({ company, isOwner }: Props) {
               placeholder="T1234567890123"
               disabled={!isOwner}
             />
+            {err.registrationNumber && (
+              <p className="text-sm text-destructive">{err.registrationNumber.message}</p>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -106,29 +144,47 @@ export function CompanySettingsForm({ company, isOwner }: Props) {
               <Label>消費税率（%）</Label>
               <Input
                 type="number"
+                min={0}
+                max={100}
                 {...form.register("defaultTaxRate", { valueAsNumber: true })}
                 disabled={!isOwner}
               />
+              {err.defaultTaxRate && (
+                <p className="text-sm text-destructive">{err.defaultTaxRate.message}</p>
+              )}
             </div>
             <div className="space-y-2">
               <Label>諸経費率（%）</Label>
               <Input
                 type="number"
+                min={0}
+                max={100}
                 {...form.register("defaultExpenseRate", { valueAsNumber: true })}
                 disabled={!isOwner}
               />
+              {err.defaultExpenseRate && (
+                <p className="text-sm text-destructive">{err.defaultExpenseRate.message}</p>
+              )}
             </div>
             <div className="space-y-2">
               <Label>見積有効期限（日）</Label>
               <Input
                 type="number"
-                {...form.register("estimateValidityDays", {
-                  valueAsNumber: true,
-                })}
+                min={1}
+                max={365}
+                {...form.register("estimateValidityDays", { valueAsNumber: true })}
                 disabled={!isOwner}
               />
+              {err.estimateValidityDays && (
+                <p className="text-sm text-destructive">{err.estimateValidityDays.message}</p>
+              )}
             </div>
           </div>
+          {!isOwner && (
+            <p className="text-sm text-muted-foreground">
+              ※ 設定の変更はオーナーのみ可能です
+            </p>
+          )}
         </CardContent>
       </Card>
 

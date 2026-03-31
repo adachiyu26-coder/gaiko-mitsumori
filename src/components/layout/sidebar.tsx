@@ -2,22 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  LayoutDashboard,
-  FileText,
-  Users,
-  Database,
-  Settings,
-} from "lucide-react";
 import { cn } from "@/lib/utils";
-
-const navItems = [
-  { href: "/dashboard", label: "ダッシュボード", icon: LayoutDashboard },
-  { href: "/estimates", label: "見積一覧", icon: FileText },
-  { href: "/customers", label: "顧客管理", icon: Users },
-  { href: "/master/unit-prices", label: "単価マスタ", icon: Database },
-  { href: "/settings", label: "設定", icon: Settings },
-];
+import { navItems } from "@/lib/constants/nav";
 
 export function Sidebar() {
   const pathname = usePathname();
