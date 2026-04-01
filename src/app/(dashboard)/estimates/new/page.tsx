@@ -5,7 +5,7 @@ import { EstimateForm } from "@/components/estimates/estimate-form";
 export default async function NewEstimatePage() {
   const user = await requireUser();
 
-  const [customers, categories, company] = await Promise.all([
+  const [customers, categories, company, templates] = await Promise.all([
     prisma.customer.findMany({
       where: { companyId: user.companyId },
       select: { id: true, name: true, honorific: true },
@@ -20,6 +20,13 @@ export default async function NewEstimatePage() {
     prisma.company.findUnique({
       where: { id: user.companyId },
       select: { defaultTaxRate: true, defaultExpenseRate: true, estimateValidityDays: true },
+    }),
+    prisma.template.findMany({
+      where: {
+        OR: [{ isSystem: true }, { companyId: user.companyId }],
+      },
+      include: { _count: { select: { items: true } } },
+      orderBy: [{ isSystem: "desc" }, { name: "asc" }],
     }),
   ]);
 
@@ -36,6 +43,14 @@ export default async function NewEstimatePage() {
       categories={categories.map((c) => ({ id: c.id, name: c.name }))}
       showCostPrice={canViewCostPrice(user.role)}
       companyDefaults={companyDefaults}
+      templates={templates.map((t) => ({
+        id: t.id,
+        name: t.name,
+        description: t.description,
+        isSystem: t.isSystem,
+        isShared: t.isShared,
+        _count: t._count,
+      }))}
     />
   );
 }

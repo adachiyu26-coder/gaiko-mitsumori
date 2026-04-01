@@ -21,6 +21,7 @@ import { EstimateItemTree } from "./estimate-item-tree";
 import { EstimateSummary } from "./estimate-summary";
 import { ProfitMeter } from "./profit-meter";
 import { createEstimate, updateEstimate } from "@/app/(dashboard)/estimates/actions";
+import { TemplatePicker } from "./template-picker";
 
 interface Props {
   isEdit?: boolean;
@@ -50,6 +51,14 @@ interface Props {
     expenseRate: number;
     estimateValidityDays: number;
   };
+  templates?: {
+    id: string;
+    name: string;
+    description: string | null;
+    isSystem: boolean;
+    isShared: boolean;
+    _count: { items: number };
+  }[];
 }
 
 export function EstimateForm({
@@ -62,6 +71,7 @@ export function EstimateForm({
   categories,
   showCostPrice,
   companyDefaults,
+  templates,
 }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -190,6 +200,50 @@ export function EstimateForm({
     });
   };
 
+  const handleApplyTemplate = async (templateId: string) => {
+    try {
+      const res = await fetch(`/api/templates/${templateId}`);
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      const items: EditorItem[] = data.items.map((item: Record<string, unknown>, idx: number) => ({
+        id: generateTempId(),
+        parentItemId: null,
+        level: item.level as number,
+        sortOrder: idx,
+        itemName: item.itemName as string,
+        specification: (item.specification as string) || null,
+        quantity: item.quantity != null ? Number(item.quantity) : null,
+        unit: (item.unit as string) || null,
+        unitPrice: item.unitPrice != null ? Number(item.unitPrice) : null,
+        costPrice: item.costPrice != null ? Number(item.costPrice) : null,
+        amount: 0,
+        costAmount: 0,
+        categoryId: (item.categoryId as string) || null,
+        unitPriceMasterId: null,
+        note: (item.note as string) || null,
+        isAlternative: false,
+      }));
+      // Rebuild parent-child references based on level hierarchy
+      const stack: string[] = [];
+      for (const item of items) {
+        while (stack.length >= item.level) stack.pop();
+        item.parentItemId = stack.length > 0 ? stack[stack.length - 1] : null;
+        stack.push(item.id);
+      }
+      store.initEditor(items, {
+        expenseRate: store.expenseRate,
+        discountType: store.discountType,
+        discountValue: store.discountValue,
+        taxRate: store.taxRate,
+      });
+      store.setDirty(true);
+      setIsDirty(true);
+      toast.success("テンプレートを適用しました");
+    } catch {
+      toast.error("テンプレートの読み込みに失敗しました");
+    }
+  };
+
   const handleAddCategory = () => {
     store.addItem({
       id: generateTempId(),
@@ -227,6 +281,9 @@ export function EstimateForm({
           {isEdit ? "見積編集" : "新規見積作成"}
         </h1>
         <div className="flex gap-2">
+          {!isEdit && templates && templates.length > 0 && (
+            <TemplatePicker templates={templates} onApply={handleApplyTemplate} />
+          )}
           {isEdit && (
             <Button
               variant="outline"
