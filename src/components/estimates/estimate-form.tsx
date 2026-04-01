@@ -18,6 +18,7 @@ import { Save, FileDown, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { useEstimateEditor, generateTempId, type EditorItem } from "@/stores/estimate-editor";
 import { EstimateItemTree } from "./estimate-item-tree";
+import { EstimateItemTreeMobile } from "./estimate-item-tree-mobile";
 import { EstimateSummary } from "./estimate-summary";
 import { ProfitMeter } from "./profit-meter";
 import { createEstimate, updateEstimate } from "@/app/(dashboard)/estimates/actions";
@@ -433,10 +434,20 @@ export function EstimateForm({
           </Button>
         </CardHeader>
         <CardContent>
-          <EstimateItemTree
-            categories={categories}
-            showCostPrice={showCostPrice}
-          />
+          {/* Desktop */}
+          <div className="hidden md:block">
+            <EstimateItemTree
+              categories={categories}
+              showCostPrice={showCostPrice}
+            />
+          </div>
+          {/* Mobile */}
+          <div className="md:hidden">
+            <EstimateItemTreeMobile
+              categories={categories}
+              showCostPrice={showCostPrice}
+            />
+          </div>
         </CardContent>
       </Card>
 
