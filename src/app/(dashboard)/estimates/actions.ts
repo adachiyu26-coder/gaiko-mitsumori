@@ -25,7 +25,7 @@ export async function createEstimate(data: {
   items: EstimateItemFormData[];
 }) {
   const user = await requireUser();
-  if (!canEditEstimate(user.role)) throw new Error("Permission denied");
+  if (!canEditEstimate(user.role)) throw new Error("権限がありません");
 
   const estimateNumber = await generateEstimateNumber(
     user.companyId,
@@ -115,11 +115,12 @@ export async function updateEstimate(
     note?: string | null;
     internalMemo?: string | null;
     paymentTerms?: string | null;
+    version?: number;
     items: EstimateItemFormData[];
   }
 ) {
   const user = await requireUser();
-  if (!canEditEstimate(user.role)) throw new Error("Permission denied");
+  if (!canEditEstimate(user.role)) throw new Error("権限がありません");
 
   const itemsForCalc = data.items.map((item) => ({
     level: item.level,
@@ -136,6 +137,18 @@ export async function updateEstimate(
   });
 
   await prisma.$transaction(async (tx) => {
+    // 楽観的ロック: バージョンチェック
+    if (data.version != null) {
+      const current = await tx.estimate.findUnique({
+        where: { id: estimateId, companyId: user.companyId },
+        select: { version: true },
+      });
+      if (!current) throw new Error("見積が見つかりません");
+      if (current.version !== data.version) {
+        throw new Error("他のユーザーが変更を保存しています。ページを再読み込みしてください。");
+      }
+    }
+
     // Delete old items
     await tx.estimateItem.deleteMany({ where: { estimateId } });
 
@@ -164,6 +177,7 @@ export async function updateEstimate(
         costSubtotal: totals.costSubtotal,
         grossProfit: totals.grossProfit,
         grossProfitRate: totals.grossProfitRate,
+        version: { increment: 1 },
       },
     });
 
@@ -232,7 +246,7 @@ export async function updateEstimateStatus(
 
 export async function deleteEstimate(estimateId: string) {
   const user = await requireUser();
-  if (!canDeleteEstimate(user.role)) throw new Error("Permission denied");
+  if (!canDeleteEstimate(user.role)) throw new Error("権限がありません");
 
   await prisma.estimate.delete({
     where: { id: estimateId, companyId: user.companyId },
@@ -245,7 +259,7 @@ export async function deleteEstimate(estimateId: string) {
 
 export async function duplicateEstimate(estimateId: string) {
   const user = await requireUser();
-  if (!canEditEstimate(user.role)) throw new Error("Permission denied");
+  if (!canEditEstimate(user.role)) throw new Error("権限がありません");
 
   const original = await prisma.estimate.findUnique({
     where: { id: estimateId, companyId: user.companyId },
@@ -253,6 +267,14 @@ export async function duplicateEstimate(estimateId: string) {
   });
 
   if (!original) throw new Error("見積が見つかりません");
+
+  // 会社設定から有効期限日数を取得
+  const company = await prisma.company.findUnique({
+    where: { id: user.companyId },
+    select: { estimateValidityDays: true },
+  });
+  const newExpiryDate = new Date();
+  newExpiryDate.setDate(newExpiryDate.getDate() + (company?.estimateValidityDays ?? 30));
 
   const estimateNumber = await generateEstimateNumber(
     user.companyId,
@@ -268,7 +290,7 @@ export async function duplicateEstimate(estimateId: string) {
       customerId: original.customerId,
       siteAddress: original.siteAddress,
       estimateDate: new Date(),
-      expiryDate: null,
+      expiryDate: newExpiryDate,
       status: "draft",
       expenseRate: original.expenseRate,
       discountType: original.discountType,

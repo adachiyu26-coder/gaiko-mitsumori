@@ -7,7 +7,20 @@ import { writeFile, unlink, mkdir } from "fs/promises";
 
 const UPLOAD_DIR = path.join(process.cwd(), "public", "uploads");
 const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB
-const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/webp", "image/svg+xml"];
+const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/webp"];
+const ALLOWED_EXTENSIONS = ["png", "jpg", "jpeg", "webp"];
+
+/** マジックバイトでファイル形式を検証 */
+function validateMagicBytes(bytes: Uint8Array): boolean {
+  // PNG: 89 50 4E 47
+  if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) return true;
+  // JPEG: FF D8 FF
+  if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return true;
+  // WebP: 52 49 46 46 ... 57 45 42 50
+  if (bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 &&
+      bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50) return true;
+  return false;
+}
 
 export async function POST(request: NextRequest) {
   const user = await requireUser();
@@ -24,7 +37,15 @@ export async function POST(request: NextRequest) {
 
   if (!ALLOWED_TYPES.includes(file.type)) {
     return NextResponse.json(
-      { error: "PNG、JPEG、WebP、SVG形式のファイルのみ対応しています" },
+      { error: "PNG、JPEG、WebP形式のファイルのみ対応しています" },
+      { status: 400 }
+    );
+  }
+
+  const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+  if (!ALLOWED_EXTENSIONS.includes(ext)) {
+    return NextResponse.json(
+      { error: "PNG、JPEG、WebP形式のファイルのみ対応しています" },
       { status: 400 }
     );
   }
@@ -32,6 +53,14 @@ export async function POST(request: NextRequest) {
   if (file.size > MAX_FILE_SIZE) {
     return NextResponse.json(
       { error: "ファイルサイズは2MB以下にしてください" },
+      { status: 400 }
+    );
+  }
+
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  if (!validateMagicBytes(bytes)) {
+    return NextResponse.json(
+      { error: "ファイルの内容が画像形式と一致しません" },
       { status: 400 }
     );
   }
@@ -47,10 +76,8 @@ export async function POST(request: NextRequest) {
   }
 
   // Save new file
-  const ext = file.name.split(".").pop() || "png";
   const filename = `logo-${user.companyId}.${ext}`;
   await mkdir(UPLOAD_DIR, { recursive: true });
-  const bytes = new Uint8Array(await file.arrayBuffer());
   await writeFile(path.join(UPLOAD_DIR, filename), bytes);
 
   const logoUrl = `/uploads/${filename}`;

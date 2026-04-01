@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
+import { DEFAULT_SYSTEM_CATEGORIES } from "@/lib/constants/categories";
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
@@ -34,21 +35,8 @@ export async function POST(request: NextRequest) {
       });
 
       if (systemCategories.length === 0) {
-        const defaultCategories = [
-          "門まわり",
-          "塀・フェンス",
-          "カーポート・ガレージ",
-          "テラス・デッキ",
-          "アプローチ",
-          "駐車場・土間コンクリート",
-          "植栽・造園",
-          "照明・電気",
-          "排水・給水",
-          "付帯工事",
-        ];
-
         await tx.category.createMany({
-          data: defaultCategories.map((name, i) => ({
+          data: DEFAULT_SYSTEM_CATEGORIES.map((name, i) => ({
             name,
             sortOrder: i + 1,
             isSystem: true,

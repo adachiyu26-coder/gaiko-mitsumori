@@ -12,6 +12,17 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -115,14 +126,38 @@ function UserRow({
         {isSelf ? (
           <span className="text-xs text-muted-foreground">（自分）</span>
         ) : isOwner ? (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleToggleActive}
-            disabled={isPending}
-          >
-            {user.isActive ? "無効にする" : "有効にする"}
-          </Button>
+          user.isActive ? (
+            <AlertDialog>
+              <AlertDialogTrigger
+                render={<Button variant="outline" size="sm" disabled={isPending} />}
+              >
+                無効にする
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>ユーザーを無効にしますか？</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    {user.name}をシステムから無効化します。無効化されたユーザーはログインできなくなります。
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>キャンセル</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleToggleActive}>
+                    無効にする
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleToggleActive}
+              disabled={isPending}
+            >
+              有効にする
+            </Button>
+          )
         ) : null}
       </TableCell>
     </TableRow>

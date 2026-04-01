@@ -11,6 +11,9 @@ export const unitPriceSchema = z.object({
   modelNumber: z.string().max(100).optional().nullable(),
   isActive: z.boolean().default(true),
   note: z.string().optional().nullable(),
-});
+}).refine(
+  (data) => data.costPrice == null || data.costPrice <= data.unitPrice,
+  { message: "原価は見積単価以下で入力してください", path: ["costPrice"] }
+);
 
 export type UnitPriceFormData = z.infer<typeof unitPriceSchema>;

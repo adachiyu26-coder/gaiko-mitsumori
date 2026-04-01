@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Save, FileDown } from "lucide-react";
+import { Save, FileDown, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { useEstimateEditor, generateTempId, type EditorItem } from "@/stores/estimate-editor";
 import { EstimateItemTree } from "./estimate-item-tree";
@@ -25,6 +25,8 @@ import { createEstimate, updateEstimate } from "@/app/(dashboard)/estimates/acti
 interface Props {
   isEdit?: boolean;
   estimateId?: string;
+  estimateVersion?: number;
+  estimateStatus?: string;
   defaultValues?: {
     title: string;
     customerId: string | null;
@@ -53,6 +55,8 @@ interface Props {
 export function EstimateForm({
   isEdit,
   estimateId,
+  estimateVersion,
+  estimateStatus,
   defaultValues,
   customers,
   categories,
@@ -123,6 +127,10 @@ export function EstimateForm({
       toast.error("件名を入力してください");
       return;
     }
+    if (store.items.length === 0) {
+      toast.error("見積明細を1つ以上追加してください");
+      return;
+    }
 
     startTransition(async () => {
       try {
@@ -167,7 +175,7 @@ export function EstimateForm({
         };
 
         if (isEdit && estimateId) {
-          await updateEstimate(estimateId, payload);
+          await updateEstimate(estimateId, { ...payload, version: estimateVersion });
           toast.success("見積を保存しました");
           store.setDirty(false);
           setIsDirty(false);
@@ -205,6 +213,14 @@ export function EstimateForm({
 
   return (
     <div className="space-y-6">
+      {/* Status warning for accepted/rejected estimates */}
+      {isEdit && (estimateStatus === "accepted" || estimateStatus === "rejected") && (
+        <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          この見積は「{estimateStatus === "accepted" ? "受注" : "失注"}」ステータスです。編集すると内容が上書きされます。
+        </div>
+      )}
+
       {/* Header actions */}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">

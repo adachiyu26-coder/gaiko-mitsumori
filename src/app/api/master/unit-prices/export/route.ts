@@ -11,6 +11,15 @@ export async function GET() {
     orderBy: [{ category: { sortOrder: "asc" } }, { itemName: "asc" }],
   });
 
+  /** CSVフィールドをエスケープ（カンマ・改行・ダブルクォート対応） */
+  const escapeCsvField = (value: string | number): string => {
+    const str = String(value);
+    if (str.includes(",") || str.includes('"') || str.includes("\n")) {
+      return `"${str.replace(/"/g, '""')}"`;
+    }
+    return str;
+  };
+
   const header = "カテゴリ,品名,規格,単位,見積単価,原価,メーカー,型番";
   const rows = items.map((item) =>
     [
@@ -22,7 +31,7 @@ export async function GET() {
       item.costPrice ? Number(item.costPrice) : "",
       item.manufacturer ?? "",
       item.modelNumber ?? "",
-    ].join(",")
+    ].map(escapeCsvField).join(",")
   );
 
   const bom = "\uFEFF";

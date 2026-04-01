@@ -21,6 +21,7 @@ export function calculateItemAmount(
   unitPrice: number | null
 ): number {
   if (quantity == null || unitPrice == null) return 0;
+  if (quantity < 0 || unitPrice < 0) return 0;
   return Math.floor(quantity * unitPrice);
 }
 

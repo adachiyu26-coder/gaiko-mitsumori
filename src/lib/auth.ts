@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
+import { DEFAULT_SYSTEM_CATEGORIES } from "@/lib/constants/categories";
 
 async function getOrCreateDevUser() {
   // Dev mode: create/return a dummy user + company
@@ -20,13 +21,8 @@ async function getOrCreateDevUser() {
     // Create system categories if not exist
     const existing = await prisma.category.count({ where: { isSystem: true } });
     if (existing === 0) {
-      const categories = [
-        "門まわり", "塀・フェンス", "カーポート・ガレージ", "テラス・デッキ",
-        "アプローチ", "駐車場・土間コンクリート", "植栽・造園",
-        "照明・電気", "排水・給水", "付帯工事",
-      ];
       await prisma.category.createMany({
-        data: categories.map((name, i) => ({
+        data: DEFAULT_SYSTEM_CATEGORIES.map((name, i) => ({
           name,
           sortOrder: i + 1,
           isSystem: true,
@@ -54,7 +50,7 @@ async function getOrCreateDevUser() {
 }
 
 export async function getCurrentUser() {
-  if (process.env.DEV_BYPASS_AUTH === "true") {
+  if (process.env.DEV_BYPASS_AUTH === "true" && process.env.NODE_ENV !== "production") {
     const user = await getOrCreateDevUser();
     const company = await prisma.company.findUnique({
       where: { id: user.companyId },
@@ -76,13 +72,15 @@ export async function getCurrentUser() {
     include: { company: true },
   });
 
+  if (user && !user.isActive) return null;
+
   return user;
 }
 
 export async function requireUser() {
   const user = await getCurrentUser();
   if (!user) {
-    throw new Error("Unauthorized");
+    throw new Error("認証が必要です");
   }
   return user;
 }

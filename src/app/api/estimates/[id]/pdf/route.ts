@@ -10,10 +10,13 @@ import { EstimatePdf } from "@/lib/pdf/estimate-pdf";
 async function resolveLogoUrl(logoUrl: string | null): Promise<string | null> {
   if (!logoUrl) return null;
   try {
-    const filePath = path.join(process.cwd(), "public", logoUrl);
+    const publicDir = path.resolve(process.cwd(), "public");
+    const filePath = path.resolve(publicDir, logoUrl.replace(/^\//, ""));
+    // パストラバーサル防止: publicディレクトリ内のファイルのみ許可
+    if (!filePath.startsWith(publicDir + path.sep)) return null;
     const buffer = await readFile(filePath);
     const ext = path.extname(logoUrl).slice(1).toLowerCase();
-    const mime = ext === "svg" ? "image/svg+xml" : ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg";
+    const mime = ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg";
     return `data:${mime};base64,${buffer.toString("base64")}`;
   } catch {
     return null;
@@ -41,7 +44,7 @@ export async function GET(
   });
 
   if (!estimate) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return NextResponse.json({ error: "見積が見つかりません" }, { status: 404 });
   }
 
   const buffer = await renderToBuffer(

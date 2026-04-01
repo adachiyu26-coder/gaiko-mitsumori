@@ -35,7 +35,7 @@ export default async function EstimatesPage({
   const params = await searchParams;
   const q = params.q?.trim() ?? "";
   const status = params.status && params.status !== "all" ? params.status : undefined;
-  const page = Math.max(1, parseInt(params.page ?? "1") || 1);
+  let page = Math.max(1, parseInt(params.page ?? "1") || 1);
 
   const where = {
     companyId: user.companyId,
@@ -63,6 +63,7 @@ export default async function EstimatesPage({
   ]);
 
   const totalPages = Math.ceil(total / PAGE_SIZE);
+  page = Math.min(page, Math.max(1, totalPages));
 
   const buildUrl = (overrides: { q?: string; status?: string; page?: number }) => {
     const p = new URLSearchParams();

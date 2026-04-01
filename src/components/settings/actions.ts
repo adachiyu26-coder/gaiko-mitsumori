@@ -4,10 +4,13 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db/prisma";
 import { requireUser, canManageUsers } from "@/lib/auth";
 
+const VALID_ROLES = ["owner", "manager", "staff", "viewer"];
+
 export async function updateUserRole(userId: string, role: string) {
   const user = await requireUser();
-  if (!canManageUsers(user.role)) throw new Error("Permission denied");
+  if (!canManageUsers(user.role)) throw new Error("権限がありません");
   if (userId === user.id) throw new Error("自分自身のロールは変更できません");
+  if (!VALID_ROLES.includes(role)) throw new Error("無効なロールです");
 
   await prisma.user.update({
     where: { id: userId, companyId: user.companyId },
@@ -19,7 +22,7 @@ export async function updateUserRole(userId: string, role: string) {
 
 export async function deactivateUser(userId: string) {
   const user = await requireUser();
-  if (!canManageUsers(user.role)) throw new Error("Permission denied");
+  if (!canManageUsers(user.role)) throw new Error("権限がありません");
   if (userId === user.id) throw new Error("自分自身は無効にできません");
 
   await prisma.user.update({
@@ -32,7 +35,7 @@ export async function deactivateUser(userId: string) {
 
 export async function activateUser(userId: string) {
   const user = await requireUser();
-  if (!canManageUsers(user.role)) throw new Error("Permission denied");
+  if (!canManageUsers(user.role)) throw new Error("権限がありません");
 
   await prisma.user.update({
     where: { id: userId, companyId: user.companyId },
@@ -59,7 +62,7 @@ export async function updateCompanySettings(data: {
   estimateValidityDays: number;
 }) {
   const user = await requireUser();
-  if (!canManageUsers(user.role)) throw new Error("Permission denied");
+  if (!canManageUsers(user.role)) throw new Error("権限がありません");
 
   await prisma.company.update({
     where: { id: user.companyId },

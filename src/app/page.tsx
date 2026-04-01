@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { redirect } from "next/navigation";
 
 export default async function Home() {
-  if (process.env.DEV_BYPASS_AUTH === "true") {
+  if (process.env.DEV_BYPASS_AUTH === "true" && process.env.NODE_ENV !== "production") {
     redirect("/dashboard");
   }
 

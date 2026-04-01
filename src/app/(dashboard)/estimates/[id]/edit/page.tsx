@@ -35,6 +35,8 @@ export default async function EditEstimatePage({
     <EstimateForm
       isEdit
       estimateId={id}
+      estimateVersion={estimate.version}
+      estimateStatus={estimate.status}
       customers={customers}
       categories={categories.map((c) => ({ id: c.id, name: c.name }))}
       showCostPrice={canViewCostPrice(user.role)}

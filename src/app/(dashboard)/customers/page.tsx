@@ -30,7 +30,7 @@ export default async function CustomersPage({
   const user = await requireUser();
   const params = await searchParams;
   const q = params.q?.trim() ?? "";
-  const page = Math.max(1, parseInt(params.page ?? "1") || 1);
+  let page = Math.max(1, parseInt(params.page ?? "1") || 1);
 
   const where = {
     companyId: user.companyId,
@@ -58,6 +58,7 @@ export default async function CustomersPage({
   ]);
 
   const totalPages = Math.ceil(total / PAGE_SIZE);
+  page = Math.min(page, Math.max(1, totalPages));
 
   const buildUrl = (overrides: { q?: string; page?: number }) => {
     const p = new URLSearchParams();

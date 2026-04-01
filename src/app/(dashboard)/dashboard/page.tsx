@@ -65,7 +65,7 @@ export default async function DashboardPage() {
   const avgProfitRate =
     allMonthEstimates.length > 0
       ? Math.round(
-          (allMonthEstimates.reduce((sum, e) => sum + Number(e.grossProfitRate), 0) /
+          (allMonthEstimates.reduce((sum, e) => sum + Number(e.grossProfitRate ?? 0), 0) /
             allMonthEstimates.length) *
             10
         ) / 10

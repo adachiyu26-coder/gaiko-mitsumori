@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 
 export async function proxy(request: NextRequest) {
   // Dev mode: skip auth proxy
-  if (process.env.DEV_BYPASS_AUTH === "true") {
+  if (process.env.DEV_BYPASS_AUTH === "true" && process.env.NODE_ENV !== "production") {
     return NextResponse.next();
   }
 

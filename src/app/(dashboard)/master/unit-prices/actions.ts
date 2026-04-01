@@ -7,7 +7,7 @@ import { unitPriceSchema, type UnitPriceFormData } from "@/lib/validations/unit-
 
 export async function createUnitPrice(data: UnitPriceFormData) {
   const user = await requireUser();
-  if (!canEditUnitPriceMaster(user.role)) throw new Error("Permission denied");
+  if (!canEditUnitPriceMaster(user.role)) throw new Error("権限がありません");
   const validated = unitPriceSchema.parse(data);
 
   await prisma.unitPriceMaster.create({
@@ -19,7 +19,7 @@ export async function createUnitPrice(data: UnitPriceFormData) {
 
 export async function updateUnitPrice(id: string, data: UnitPriceFormData) {
   const user = await requireUser();
-  if (!canEditUnitPriceMaster(user.role)) throw new Error("Permission denied");
+  if (!canEditUnitPriceMaster(user.role)) throw new Error("権限がありません");
   const validated = unitPriceSchema.parse(data);
 
   await prisma.unitPriceMaster.update({
@@ -32,7 +32,7 @@ export async function updateUnitPrice(id: string, data: UnitPriceFormData) {
 
 export async function toggleUnitPriceActive(id: string, isActive: boolean) {
   const user = await requireUser();
-  if (!canEditUnitPriceMaster(user.role)) throw new Error("Permission denied");
+  if (!canEditUnitPriceMaster(user.role)) throw new Error("権限がありません");
 
   await prisma.unitPriceMaster.update({
     where: { id, companyId: user.companyId },
@@ -44,7 +44,7 @@ export async function toggleUnitPriceActive(id: string, isActive: boolean) {
 
 export async function deleteUnitPrice(id: string) {
   const user = await requireUser();
-  if (!canEditUnitPriceMaster(user.role)) throw new Error("Permission denied");
+  if (!canEditUnitPriceMaster(user.role)) throw new Error("権限がありません");
 
   await prisma.unitPriceMaster.delete({
     where: { id, companyId: user.companyId },
@@ -53,14 +53,56 @@ export async function deleteUnitPrice(id: string) {
   revalidatePath("/master/unit-prices");
 }
 
+const MAX_CSV_SIZE = 1 * 1024 * 1024; // 1MB
+const MAX_CSV_ROWS = 5000;
+
+/** RFC 4180準拠のCSV行パーサー（クォート内カンマ対応） */
+function parseCsvLine(line: string): string[] {
+  const fields: string[] = [];
+  let current = "";
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (inQuotes) {
+      if (ch === '"' && line[i + 1] === '"') {
+        current += '"';
+        i++;
+      } else if (ch === '"') {
+        inQuotes = false;
+      } else {
+        current += ch;
+      }
+    } else {
+      if (ch === '"') {
+        inQuotes = true;
+      } else if (ch === ",") {
+        fields.push(current.trim());
+        current = "";
+      } else {
+        current += ch;
+      }
+    }
+  }
+  fields.push(current.trim());
+  return fields;
+}
+
 export async function importUnitPricesFromCsv(csvText: string) {
   const user = await requireUser();
-  if (!canEditUnitPriceMaster(user.role)) throw new Error("Permission denied");
+  if (!canEditUnitPriceMaster(user.role)) throw new Error("権限がありません");
+
+  if (new TextEncoder().encode(csvText).length > MAX_CSV_SIZE) {
+    throw new Error("CSVファイルは1MB以下にしてください");
+  }
 
   const lines = csvText.trim().split("\n");
   if (lines.length < 2) throw new Error("CSVにデータがありません");
 
-  const headers = lines[0].split(",").map((h) => h.trim());
+  if (lines.length - 1 > MAX_CSV_ROWS) {
+    throw new Error(`一度にインポートできるのは${MAX_CSV_ROWS}件までです`);
+  }
+
+  const headers = parseCsvLine(lines[0]);
   const nameIdx = headers.indexOf("品名");
   const specIdx = headers.indexOf("規格");
   const unitIdx = headers.indexOf("単位");
@@ -74,26 +116,49 @@ export async function importUnitPricesFromCsv(csvText: string) {
   }
 
   const records = [];
+  const errors: string[] = [];
   for (let i = 1; i < lines.length; i++) {
-    const cols = lines[i].split(",").map((c) => c.trim());
+    const cols = parseCsvLine(lines[i]);
     if (!cols[nameIdx]) continue;
+
+    const unitPrice = parseFloat(cols[priceIdx]);
+    if (isNaN(unitPrice) || unitPrice < 0) {
+      errors.push(`行${i + 1}: 見積単価が不正です（${cols[priceIdx]}）`);
+      continue;
+    }
+
+    let costPrice: number | null = null;
+    if (costIdx >= 0 && cols[costIdx]) {
+      const parsed = parseFloat(cols[costIdx]);
+      if (isNaN(parsed) || parsed < 0) {
+        errors.push(`行${i + 1}: 原価が不正です（${cols[costIdx]}）`);
+        continue;
+      }
+      costPrice = Math.floor(parsed);
+    }
 
     records.push({
       companyId: user.companyId,
       itemName: cols[nameIdx],
       specification: specIdx >= 0 ? cols[specIdx] || null : null,
       unit: cols[unitIdx] || "式",
-      unitPrice: Math.floor(parseFloat(cols[priceIdx])) || 0,
-      costPrice: costIdx >= 0 ? (parseFloat(cols[costIdx]) ? Math.floor(parseFloat(cols[costIdx])) : null) : null,
+      unitPrice: Math.floor(unitPrice),
+      costPrice,
       manufacturer: mfgIdx >= 0 ? cols[mfgIdx] || null : null,
       modelNumber: modelIdx >= 0 ? cols[modelIdx] || null : null,
     });
   }
 
-  if (records.length === 0) throw new Error("インポート可能なデータがありません");
+  if (records.length === 0) {
+    throw new Error(
+      errors.length > 0
+        ? `インポート可能なデータがありません。\n${errors.join("\n")}`
+        : "インポート可能なデータがありません"
+    );
+  }
 
   await prisma.unitPriceMaster.createMany({ data: records });
 
   revalidatePath("/master/unit-prices");
-  return { count: records.length };
+  return { count: records.length, errors };
 }
