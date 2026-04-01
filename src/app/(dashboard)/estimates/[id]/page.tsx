@@ -6,11 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Pencil, Copy, FileDown, Trash2 } from "lucide-react";
+import { Pencil, Copy, FileDown, Trash2, GitBranch } from "lucide-react";
 import { formatCurrency, formatDate, formatPercent } from "@/lib/utils/format";
 import { EstimateStatusActions } from "@/components/estimates/estimate-status-actions";
 import { DeleteEstimateButton } from "@/components/estimates/delete-estimate-button";
 import { DuplicateEstimateButton } from "@/components/estimates/duplicate-estimate-button";
+import { CreateVersionButton } from "@/components/estimates/create-version-button";
+import { ShareEstimateButton } from "@/components/estimates/share-estimate-button";
 import { ESTIMATE_STATUS_CONFIG } from "@/lib/constants/status";
 
 const statusConfig = ESTIMATE_STATUS_CONFIG;
@@ -34,6 +36,21 @@ export default async function EstimateDetailPage({
   });
 
   if (!estimate) notFound();
+
+  const versions = await prisma.estimate.findMany({
+    where: {
+      companyId: user.companyId,
+      estimateNumber: estimate.estimateNumber,
+    },
+    select: {
+      id: true,
+      version: true,
+      status: true,
+      totalAmount: true,
+      createdAt: true,
+    },
+    orderBy: { version: "desc" },
+  });
 
   const s = statusConfig[estimate.status as keyof typeof statusConfig] ?? statusConfig.draft;
 
@@ -147,6 +164,7 @@ export default async function EstimateDetailPage({
               編集
             </Button>
           </Link>
+          <CreateVersionButton estimateId={id} />
           <DuplicateEstimateButton estimateId={id} />
           <a
             href={`/api/estimates/${id}/pdf`}
@@ -158,6 +176,7 @@ export default async function EstimateDetailPage({
               PDF
             </Button>
           </a>
+          <ShareEstimateButton estimateId={id} />
           {canDeleteEstimate(user.role) && (
             <DeleteEstimateButton estimateId={id} />
           )}
@@ -203,6 +222,44 @@ export default async function EstimateDetailPage({
           </dl>
         </CardContent>
       </Card>
+
+      {/* Version History */}
+      {versions.length > 1 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <GitBranch className="h-4 w-4" />
+              バージョン履歴
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {versions.map((v) => {
+                const isCurrent = v.id === id;
+                const vs = statusConfig[v.status as keyof typeof statusConfig] ?? statusConfig.draft;
+                return (
+                  <div key={v.id} className={`flex items-center justify-between rounded-lg border p-2 text-sm ${isCurrent ? "bg-brand/[0.07] border-brand/30" : ""}`}>
+                    <div className="flex items-center gap-2">
+                      {isCurrent ? (
+                        <span className="font-semibold">v{v.version}（現在）</span>
+                      ) : (
+                        <Link href={`/estimates/${v.id}`} className="text-brand hover:underline">
+                          v{v.version}
+                        </Link>
+                      )}
+                      <Badge variant={vs.variant}>{vs.label}</Badge>
+                    </div>
+                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                      <span className="font-mono">{formatCurrency(Number(v.totalAmount))}</span>
+                      <span>{formatDate(v.createdAt)}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Items */}
       <Card>

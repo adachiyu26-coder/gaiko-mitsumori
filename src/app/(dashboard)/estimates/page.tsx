@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -29,13 +30,27 @@ const statusConfig = ESTIMATE_STATUS_CONFIG;
 export default async function EstimatesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; status?: string; page?: string }>;
+  searchParams: Promise<{ q?: string; status?: string; page?: string; dateFrom?: string; dateTo?: string; amountMin?: string; amountMax?: string }>;
 }) {
   const user = await requireUser();
   const params = await searchParams;
   const q = params.q?.trim() ?? "";
   const status = params.status && params.status !== "all" ? params.status : undefined;
+  const dateFrom = params.dateFrom ?? "";
+  const dateTo = params.dateTo ?? "";
+  const amountMin = params.amountMin ? parseInt(params.amountMin) : undefined;
+  const amountMax = params.amountMax ? parseInt(params.amountMax) : undefined;
   let page = Math.max(1, parseInt(params.page ?? "1") || 1);
+
+  const estimateDateFilter = {
+    ...(dateFrom ? { gte: new Date(dateFrom) } : {}),
+    ...(dateTo ? { lte: new Date(dateTo) } : {}),
+  };
+
+  const totalAmountFilter = {
+    ...(amountMin != null ? { gte: amountMin } : {}),
+    ...(amountMax != null ? { lte: amountMax } : {}),
+  };
 
   const where = {
     companyId: user.companyId,
@@ -49,6 +64,8 @@ export default async function EstimatesPage({
           ],
         }
       : {}),
+    ...(Object.keys(estimateDateFilter).length > 0 ? { estimateDate: estimateDateFilter } : {}),
+    ...(Object.keys(totalAmountFilter).length > 0 ? { totalAmount: totalAmountFilter } : {}),
   };
 
   const [estimates, total] = await Promise.all([
@@ -73,6 +90,10 @@ export default async function EstimatesPage({
     if (newQ) p.set("q", newQ);
     if (newStatus && newStatus !== "all") p.set("status", newStatus);
     if (newPage > 1) p.set("page", String(newPage));
+    if (dateFrom) p.set("dateFrom", dateFrom);
+    if (dateTo) p.set("dateTo", dateTo);
+    if (amountMin != null) p.set("amountMin", String(amountMin));
+    if (amountMax != null) p.set("amountMax", String(amountMax));
     const qs = p.toString();
     return `/estimates${qs ? `?${qs}` : ""}`;
   };
@@ -123,12 +144,42 @@ export default async function EstimatesPage({
             );
           })}
         </div>
+        <details className="group">
+          <summary className="cursor-pointer text-sm text-muted-foreground hover:text-foreground flex items-center gap-1">
+            <ChevronRight className="h-3 w-3 transition-transform group-open:rotate-90" />
+            詳細フィルター
+          </summary>
+          <form action="/estimates" method="GET" className="mt-2 grid gap-2 md:grid-cols-4">
+            {q && <input type="hidden" name="q" value={q} />}
+            {params.status && params.status !== "all" && <input type="hidden" name="status" value={params.status} />}
+            <div className="space-y-1">
+              <Label className="text-xs">見積日（開始）</Label>
+              <Input type="date" name="dateFrom" defaultValue={dateFrom} className="h-8 text-sm" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">見積日（終了）</Label>
+              <Input type="date" name="dateTo" defaultValue={dateTo} className="h-8 text-sm" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">金額（下限）</Label>
+              <Input type="number" name="amountMin" defaultValue={amountMin ?? ""} placeholder="¥0" className="h-8 text-sm" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">金額（上限）</Label>
+              <Input type="number" name="amountMax" defaultValue={amountMax ?? ""} placeholder="¥∞" className="h-8 text-sm" />
+            </div>
+            <div className="md:col-span-4 flex gap-2">
+              <Button type="submit" variant="outline" size="sm">フィルター適用</Button>
+              <Link href="/estimates"><Button variant="ghost" size="sm">リセット</Button></Link>
+            </div>
+          </form>
+        </details>
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle>
-            {q || status
+            {q || status || dateFrom || dateTo || amountMin != null || amountMax != null
               ? `検索結果（${total}件）`
               : `全見積（${total}件）`}
           </CardTitle>
@@ -136,8 +187,8 @@ export default async function EstimatesPage({
         <CardContent>
           {estimates.length === 0 ? (
             <p className="text-muted-foreground text-sm py-8 text-center">
-              {q || status ? "条件に一致する見積がありません。" : "見積がまだありません。"}
-              {!q && !status && (
+              {q || status || dateFrom || dateTo || amountMin != null || amountMax != null ? "条件に一致する見積がありません。" : "見積がまだありません。"}
+              {!q && !status && !dateFrom && !dateTo && amountMin == null && amountMax == null && (
                 <Link href="/estimates/new" className="text-brand hover:underline ml-1">
                   最初の見積を作成
                 </Link>
