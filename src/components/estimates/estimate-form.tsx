@@ -22,6 +22,7 @@ import { EstimateSummary } from "./estimate-summary";
 import { ProfitMeter } from "./profit-meter";
 import { createEstimate, updateEstimate } from "@/app/(dashboard)/estimates/actions";
 import { TemplatePicker } from "./template-picker";
+import { AiGenerateDialog } from "./ai-generate-dialog";
 
 interface Props {
   isEdit?: boolean;
@@ -244,6 +245,48 @@ export function EstimateForm({
     }
   };
 
+  const handleAiGenerate = (title: string, items: { level: number; itemName: string; specification?: string | null; quantity?: number | null; unit?: string | null; unitPrice?: number | null; costPrice?: number | null }[]) => {
+    // Update header title
+    if (title) updateHeader({ title });
+
+    // Convert AI items to EditorItems
+    const editorItems: EditorItem[] = items.map((item, idx) => ({
+      id: generateTempId(),
+      parentItemId: null,
+      level: item.level,
+      sortOrder: idx,
+      itemName: item.itemName,
+      specification: item.specification || null,
+      quantity: item.quantity ?? null,
+      unit: item.unit || null,
+      unitPrice: item.unitPrice ?? null,
+      costPrice: item.costPrice ?? null,
+      amount: 0,
+      costAmount: 0,
+      categoryId: null,
+      unitPriceMasterId: null,
+      note: null,
+      isAlternative: false,
+    }));
+
+    // Rebuild parent-child based on level
+    const stack: string[] = [];
+    for (const item of editorItems) {
+      while (stack.length >= item.level) stack.pop();
+      item.parentItemId = stack.length > 0 ? stack[stack.length - 1] : null;
+      stack.push(item.id);
+    }
+
+    store.initEditor(editorItems, {
+      expenseRate: store.expenseRate,
+      discountType: store.discountType,
+      discountValue: store.discountValue,
+      taxRate: store.taxRate,
+    });
+    store.setDirty(true);
+    setIsDirty(true);
+  };
+
   const handleAddCategory = () => {
     store.addItem({
       id: generateTempId(),
@@ -284,6 +327,7 @@ export function EstimateForm({
           {!isEdit && templates && templates.length > 0 && (
             <TemplatePicker templates={templates} onApply={handleApplyTemplate} />
           )}
+          {!isEdit && <AiGenerateDialog onGenerate={handleAiGenerate} />}
           {isEdit && (
             <Button
               variant="outline"

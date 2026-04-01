@@ -42,6 +42,48 @@ export async function toggleUnitPriceActive(id: string, isActive: boolean) {
   revalidatePath("/master/unit-prices");
 }
 
+export async function bulkAdjustPrices(data: {
+  categoryId?: string | null;
+  adjustType: "unitPrice" | "costPrice" | "both";
+  adjustPercent: number;
+}) {
+  const user = await requireUser();
+  if (!canEditUnitPriceMaster(user.role)) throw new Error("権限がありません");
+
+  if (data.adjustPercent < -50 || data.adjustPercent > 100) {
+    throw new Error("調整率は-50%〜100%の範囲で入力してください");
+  }
+
+  const where: Record<string, unknown> = {
+    companyId: user.companyId,
+    isActive: true,
+  };
+  if (data.categoryId) where.categoryId = data.categoryId;
+
+  const items = await prisma.unitPriceMaster.findMany({ where: where as any });
+
+  const multiplier = 1 + data.adjustPercent / 100;
+
+  await prisma.$transaction(
+    items.map((item) => {
+      const updateData: Record<string, unknown> = {};
+      if (data.adjustType === "unitPrice" || data.adjustType === "both") {
+        updateData.unitPrice = Math.floor(Number(item.unitPrice) * multiplier);
+      }
+      if ((data.adjustType === "costPrice" || data.adjustType === "both") && item.costPrice) {
+        updateData.costPrice = Math.floor(Number(item.costPrice) * multiplier);
+      }
+      return prisma.unitPriceMaster.update({
+        where: { id: item.id },
+        data: updateData,
+      });
+    })
+  );
+
+  revalidatePath("/master/unit-prices");
+  return { count: items.length };
+}
+
 export async function deleteUnitPrice(id: string) {
   const user = await requireUser();
   if (!canEditUnitPriceMaster(user.role)) throw new Error("権限がありません");

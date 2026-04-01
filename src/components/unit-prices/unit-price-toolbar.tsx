@@ -22,6 +22,7 @@ import {
 import { createUnitPrice, importUnitPricesFromCsv } from "@/app/(dashboard)/master/unit-prices/actions";
 import { ESTIMATE_UNITS } from "@/lib/constants/status";
 import { toast } from "sonner";
+import { BulkAdjustDialog } from "@/components/unit-prices/bulk-adjust-dialog";
 
 interface Props {
   canEdit: boolean;
@@ -248,6 +249,8 @@ export function UnitPriceToolbar({ canEdit, categories }: Props) {
         <Download className="mr-2 h-4 w-4" />
         CSVエクスポート
       </Button>
+
+      <BulkAdjustDialog categories={categories} />
     </div>
   );
 }

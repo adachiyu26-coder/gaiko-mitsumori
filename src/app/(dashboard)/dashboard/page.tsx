@@ -2,7 +2,8 @@ import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db/prisma";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { FileText, TrendingUp, Percent, CheckCircle2 } from "lucide-react";
+import { FileText, TrendingUp, Percent, CheckCircle2, Bell, ChevronRight, BarChart3 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { formatCurrency, formatDate } from "@/lib/utils/format";
 import Link from "next/link";
 
@@ -31,6 +32,7 @@ export default async function DashboardPage() {
     recentEstimates,
     allMonthEstimates,
     pipelineData,
+    expiringCount,
   ] = await Promise.all([
     prisma.estimate.count({
       where: { companyId, createdAt: { gte: startOfMonth } },
@@ -57,6 +59,16 @@ export default async function DashboardPage() {
       where: { companyId },
       _count: { _all: true },
       _sum: { totalAmount: true },
+    }),
+    prisma.estimate.count({
+      where: {
+        companyId,
+        status: "submitted",
+        expiryDate: {
+          gte: new Date(),
+          lte: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        },
+      },
     }),
   ]);
 
@@ -104,9 +116,29 @@ export default async function DashboardPage() {
     };
   });
 
+  const expiryAlertDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">ダッシュボード</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">ダッシュボード</h1>
+        <Link href="/dashboard/analytics">
+          <Button variant="outline" size="sm">
+            <BarChart3 className="mr-2 h-4 w-4" />
+            経営分析
+          </Button>
+        </Link>
+      </div>
+
+      {expiringCount > 0 && (
+        <Link href={`/estimates?status=submitted&dateTo=${expiryAlertDate}`}>
+          <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+            <Bell className="h-4 w-4 shrink-0" />
+            <span>有効期限が7日以内の提出済み見積が <strong>{expiringCount}件</strong> あります</span>
+            <ChevronRight className="h-4 w-4 ml-auto shrink-0" />
+          </div>
+        </Link>
+      )}
 
       {/* KPI カード */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
