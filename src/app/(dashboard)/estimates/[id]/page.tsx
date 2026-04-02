@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { requireUser, canViewCostPrice, canDeleteEstimate } from "@/lib/auth";
+import { requireUser, canViewCostPrice, canDeleteEstimate, canEditUnitPriceMaster } from "@/lib/auth";
 import { prisma } from "@/lib/db/prisma";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,6 +11,7 @@ import { formatCurrency, formatDate, formatPercent } from "@/lib/utils/format";
 import { EstimateStatusActions } from "@/components/estimates/estimate-status-actions";
 import { DeleteEstimateButton } from "@/components/estimates/delete-estimate-button";
 import { DuplicateEstimateButton } from "@/components/estimates/duplicate-estimate-button";
+import { SaveAsTemplateButton } from "@/components/estimates/save-as-template-button";
 import { CreateVersionButton } from "@/components/estimates/create-version-button";
 import { ShareEstimateButton } from "@/components/estimates/share-estimate-button";
 import { ESTIMATE_STATUS_CONFIG } from "@/lib/constants/status";
@@ -166,6 +167,9 @@ export default async function EstimateDetailPage({
           </Link>
           <CreateVersionButton estimateId={id} />
           <DuplicateEstimateButton estimateId={id} />
+          {canEditUnitPriceMaster(user.role) && (
+            <SaveAsTemplateButton estimateId={id} defaultName={estimate.title} />
+          )}
           <a
             href={`/api/estimates/${id}/pdf`}
             target="_blank"

@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useState, useMemo } from "react";
+import { Fragment, useState, useEffect, useMemo } from "react";
 import { Plus, Trash2, ChevronRight, ChevronDown, GitBranch } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
@@ -14,6 +14,7 @@ import { useEstimateEditor, generateTempId, type EditorItem } from "@/stores/est
 import { formatCurrency } from "@/lib/utils/format";
 import { ESTIMATE_UNITS } from "@/lib/constants/status";
 import { cn } from "@/lib/utils";
+import { PriceIndicator } from "./price-indicator";
 
 const UNITS = ESTIMATE_UNITS;
 
@@ -65,6 +66,14 @@ function childrenOf(
 export function EstimateItemTree({ showCostPrice }: Props) {
   const { items, updateItem, removeItem, addItem } = useEstimateEditor();
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [priceStats, setPriceStats] = useState<{ itemName: string; avgPrice: number; minPrice: number; maxPrice: number; dataPoints: number }[]>([]);
+
+  useEffect(() => {
+    fetch("/api/ai/price-intelligence")
+      .then((res) => res.ok ? res.json() : [])
+      .then(setPriceStats)
+      .catch(() => {}); // Silent fail
+  }, []);
 
   const isCollapsed = (id: string) => collapsed.has(id);
   const toggleCollapse = (id: string) =>
@@ -208,6 +217,13 @@ export function EstimateItemTree({ showCostPrice }: Props) {
             placeholder="単価"
             className="h-7 text-xs w-[76px] flex-shrink-0 text-right"
           />
+          {item.level === 4 && (
+            <PriceIndicator
+              itemName={item.itemName}
+              currentPrice={item.unitPrice}
+              priceStats={priceStats}
+            />
+          )}
 
           {/* 金額（直接入力分） */}
           <div className="w-[80px] flex-shrink-0 text-right pr-0.5">
