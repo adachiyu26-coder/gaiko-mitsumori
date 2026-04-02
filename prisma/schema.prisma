@@ -33,6 +33,10 @@ model Company {
   unitPriceMaster UnitPriceMaster[]
   categories      Category[]
   templates       Template[]
+  purchaseOrders  PurchaseOrder[]
+  invoices        Invoice[]
+  approvalRequests ApprovalRequest[]
+  projects        Project[]
 
   @@map("companies")
 }
@@ -53,6 +57,12 @@ model User {
   unitPriceHistories     UnitPriceHistory[]
   notificationPreference NotificationPreference?
   notificationLogs       NotificationLog[]
+  purchaseOrders         PurchaseOrder[]         @relation("PurchaseOrderCreator")
+  invoices               Invoice[]               @relation("InvoiceCreator")
+  approvalRequests       ApprovalRequest[]        @relation("ApprovalRequester")
+  approvalActions        ApprovalAction[]
+  projects               Project[]               @relation("ProjectCreator")
+  assignedTasks          ProjectTask[]            @relation("TaskAssignee")
 
   @@index([companyId])
   @@map("users")
@@ -76,6 +86,8 @@ model Customer {
 
   company   Company    @relation(fields: [companyId], references: [id])
   estimates Estimate[]
+  invoices  Invoice[]
+  projects  Project[]
 
   @@index([companyId])
   @@map("customers")
@@ -121,8 +133,12 @@ model Estimate {
   creator         User            @relation(fields: [createdBy], references: [id])
   parentEstimate  Estimate?       @relation("EstimateVersions", fields: [parentEstimateId], references: [id])
   childEstimates  Estimate[]      @relation("EstimateVersions")
-  items           EstimateItem[]
-  comments        EstimateComment[]
+  items              EstimateItem[]
+  comments           EstimateComment[]
+  purchaseOrders     PurchaseOrder[]
+  invoices           Invoice[]
+  approvalRequests   ApprovalRequest[]
+  projects           Project[]
 
   @@unique([companyId, estimateNumber, version])
   @@index([companyId, status])
@@ -315,6 +331,179 @@ model NotificationLog {
 
   @@index([userId, isRead])
   @@map("notification_logs")
+}
+
+model PurchaseOrder {
+  id            String   @id @default(uuid()) @db.Uuid
+  companyId     String   @map("company_id") @db.Uuid
+  estimateId    String   @map("estimate_id") @db.Uuid
+  orderNumber   String   @map("order_number") @db.VarChar(30)
+  supplierName  String   @map("supplier_name") @db.VarChar(100)
+  supplierAddress String? @map("supplier_address")
+  supplierPhone String?  @map("supplier_phone") @db.VarChar(20)
+  supplierEmail String?  @map("supplier_email") @db.VarChar(255)
+  orderDate     DateTime @default(now()) @map("order_date") @db.Date
+  deliveryDate  DateTime? @map("delivery_date") @db.Date
+  subtotal      Decimal  @default(0) @db.Decimal(12, 0)
+  taxAmount     Decimal  @default(0) @map("tax_amount") @db.Decimal(12, 0)
+  totalAmount   Decimal  @default(0) @map("total_amount") @db.Decimal(12, 0)
+  note          String?
+  status        String   @default("draft") @db.VarChar(20)
+  createdBy     String   @map("created_by") @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  company  Company            @relation(fields: [companyId], references: [id])
+  estimate Estimate           @relation(fields: [estimateId], references: [id])
+  creator  User               @relation("PurchaseOrderCreator", fields: [createdBy], references: [id])
+  items    PurchaseOrderItem[]
+
+  @@index([companyId])
+  @@index([estimateId])
+  @@map("purchase_orders")
+}
+
+model PurchaseOrderItem {
+  id              String   @id @default(uuid()) @db.Uuid
+  purchaseOrderId String   @map("purchase_order_id") @db.Uuid
+  itemName        String   @map("item_name") @db.VarChar(200)
+  specification   String?  @db.VarChar(500)
+  quantity        Decimal? @db.Decimal(10, 2)
+  unit            String?  @db.VarChar(10)
+  unitPrice       Decimal? @map("unit_price") @db.Decimal(12, 0)
+  amount          Decimal  @default(0) @db.Decimal(12, 0)
+
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+
+  @@map("purchase_order_items")
+}
+
+model Invoice {
+  id              String   @id @default(uuid()) @db.Uuid
+  companyId       String   @map("company_id") @db.Uuid
+  estimateId      String?  @map("estimate_id") @db.Uuid
+  customerId      String?  @map("customer_id") @db.Uuid
+  invoiceNumber   String   @map("invoice_number") @db.VarChar(30)
+  invoiceType     String   @default("invoice") @map("invoice_type") @db.VarChar(20)
+  invoiceDate     DateTime @default(now()) @map("invoice_date") @db.Date
+  dueDate         DateTime? @map("due_date") @db.Date
+  subtotal        Decimal  @default(0) @db.Decimal(12, 0)
+  taxAmount       Decimal  @default(0) @map("tax_amount") @db.Decimal(12, 0)
+  totalAmount     Decimal  @default(0) @map("total_amount") @db.Decimal(12, 0)
+  paidAmount      Decimal  @default(0) @map("paid_amount") @db.Decimal(12, 0)
+  status          String   @default("draft") @db.VarChar(20)
+  note            String?
+  createdBy       String   @map("created_by") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  company  Company       @relation(fields: [companyId], references: [id])
+  estimate Estimate?     @relation(fields: [estimateId], references: [id])
+  customer Customer?     @relation(fields: [customerId], references: [id])
+  creator  User          @relation("InvoiceCreator", fields: [createdBy], references: [id])
+  items    InvoiceItem[]
+
+  @@index([companyId])
+  @@index([estimateId])
+  @@map("invoices")
+}
+
+model InvoiceItem {
+  id          String   @id @default(uuid()) @db.Uuid
+  invoiceId   String   @map("invoice_id") @db.Uuid
+  itemName    String   @map("item_name") @db.VarChar(200)
+  specification String? @db.VarChar(500)
+  quantity    Decimal? @db.Decimal(10, 2)
+  unit        String?  @db.VarChar(10)
+  unitPrice   Decimal? @map("unit_price") @db.Decimal(12, 0)
+  amount      Decimal  @default(0) @db.Decimal(12, 0)
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@map("invoice_items")
+}
+
+model ApprovalRequest {
+  id          String   @id @default(uuid()) @db.Uuid
+  companyId   String   @map("company_id") @db.Uuid
+  estimateId  String   @map("estimate_id") @db.Uuid
+  requestedBy String   @map("requested_by") @db.Uuid
+  approverIds String[] @map("approver_ids")
+  status      String   @default("pending") @db.VarChar(20)
+  currentStep Int      @default(1) @map("current_step")
+  totalSteps  Int      @default(1) @map("total_steps")
+  note        String?
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  company   Company          @relation(fields: [companyId], references: [id])
+  estimate  Estimate         @relation(fields: [estimateId], references: [id])
+  requester User             @relation("ApprovalRequester", fields: [requestedBy], references: [id])
+  actions   ApprovalAction[]
+
+  @@index([companyId])
+  @@index([estimateId])
+  @@map("approval_requests")
+}
+
+model ApprovalAction {
+  id                String   @id @default(uuid()) @db.Uuid
+  approvalRequestId String   @map("approval_request_id") @db.Uuid
+  userId            String   @map("user_id") @db.Uuid
+  step              Int
+  action            String   @db.VarChar(20)
+  comment           String?
+  actedAt           DateTime @default(now()) @map("acted_at") @db.Timestamptz
+
+  approvalRequest ApprovalRequest @relation(fields: [approvalRequestId], references: [id], onDelete: Cascade)
+  user            User            @relation(fields: [userId], references: [id])
+
+  @@map("approval_actions")
+}
+
+model Project {
+  id          String   @id @default(uuid()) @db.Uuid
+  companyId   String   @map("company_id") @db.Uuid
+  estimateId  String?  @map("estimate_id") @db.Uuid
+  customerId  String?  @map("customer_id") @db.Uuid
+  name        String   @db.VarChar(200)
+  siteAddress String?  @map("site_address")
+  startDate   DateTime? @map("start_date") @db.Date
+  endDate     DateTime? @map("end_date") @db.Date
+  status      String   @default("planning") @db.VarChar(20)
+  note        String?
+  createdBy   String   @map("created_by") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  company  Company     @relation(fields: [companyId], references: [id])
+  estimate Estimate?   @relation(fields: [estimateId], references: [id])
+  customer Customer?   @relation(fields: [customerId], references: [id])
+  creator  User        @relation("ProjectCreator", fields: [createdBy], references: [id])
+  tasks    ProjectTask[]
+
+  @@index([companyId])
+  @@map("projects")
+}
+
+model ProjectTask {
+  id          String    @id @default(uuid()) @db.Uuid
+  projectId   String    @map("project_id") @db.Uuid
+  name        String    @db.VarChar(200)
+  startDate   DateTime? @map("start_date") @db.Date
+  endDate     DateTime? @map("end_date") @db.Date
+  progress    Int       @default(0)
+  assigneeId  String?   @map("assignee_id") @db.Uuid
+  sortOrder   Int       @default(0) @map("sort_order")
+  color       String?   @db.VarChar(20)
+  note        String?
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  project  Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assignee User?   @relation("TaskAssignee", fields: [assigneeId], references: [id])
+
+  @@index([projectId])
+  @@map("project_tasks")
 }
 
 model EstimateComment {

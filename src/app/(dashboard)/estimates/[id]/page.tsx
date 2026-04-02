@@ -14,8 +14,11 @@ import { DuplicateEstimateButton } from "@/components/estimates/duplicate-estima
 import { SaveAsTemplateButton } from "@/components/estimates/save-as-template-button";
 import { CreateVersionButton } from "@/components/estimates/create-version-button";
 import { ShareEstimateButton } from "@/components/estimates/share-estimate-button";
+import { CreateDocumentButtons } from "@/components/estimates/create-document-buttons";
+import { CreateProjectButton } from "@/components/estimates/create-project-button";
 import { ESTIMATE_STATUS_CONFIG } from "@/lib/constants/status";
 import { WinProbability } from "@/components/estimates/win-probability";
+import { ApprovalSection } from "@/components/estimates/approval-section";
 
 const statusConfig = ESTIMATE_STATUS_CONFIG;
 
@@ -39,20 +42,34 @@ export default async function EstimateDetailPage({
 
   if (!estimate) notFound();
 
-  const versions = await prisma.estimate.findMany({
-    where: {
-      companyId: user.companyId,
-      estimateNumber: estimate.estimateNumber,
-    },
-    select: {
-      id: true,
-      version: true,
-      status: true,
-      totalAmount: true,
-      createdAt: true,
-    },
-    orderBy: { version: "desc" },
-  });
+  const [versions, approvalRequest, companyUsers] = await Promise.all([
+    prisma.estimate.findMany({
+      where: {
+        companyId: user.companyId,
+        estimateNumber: estimate.estimateNumber,
+      },
+      select: {
+        id: true,
+        version: true,
+        status: true,
+        totalAmount: true,
+        createdAt: true,
+      },
+      orderBy: { version: "desc" },
+    }),
+    prisma.approvalRequest.findFirst({
+      where: { estimateId: id, companyId: user.companyId },
+      include: {
+        actions: { include: { user: { select: { name: true } } }, orderBy: { actedAt: "asc" } },
+        requester: { select: { name: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.user.findMany({
+      where: { companyId: user.companyId, isActive: true },
+      select: { id: true, name: true, role: true },
+    }),
+  ]);
 
   const s = statusConfig[estimate.status as keyof typeof statusConfig] ?? statusConfig.draft;
 
@@ -194,6 +211,23 @@ export default async function EstimateDetailPage({
         </div>
       </div>
 
+      {/* Approval */}
+      <ApprovalSection
+        estimateId={id}
+        estimateStatus={estimate.status}
+        currentUserId={user.id}
+        currentUserRole={user.role}
+        users={companyUsers}
+        approvalRequest={approvalRequest ? {
+          ...approvalRequest,
+          createdAt: approvalRequest.createdAt.toISOString(),
+          actions: approvalRequest.actions.map((a) => ({
+            ...a,
+            actedAt: a.actedAt.toISOString(),
+          })),
+        } : null}
+      />
+
       {/* Info */}
       <Card>
         <CardContent className="pt-6">
@@ -271,6 +305,11 @@ export default async function EstimateDetailPage({
           </CardContent>
         </Card>
       )}
+
+      <div className="flex items-center gap-3 flex-wrap">
+        <CreateDocumentButtons estimateId={id} isAccepted={estimate.status === "accepted"} />
+        {estimate.status === "accepted" && <CreateProjectButton estimateId={id} />}
+      </div>
 
       {/* Items */}
       <Card>
