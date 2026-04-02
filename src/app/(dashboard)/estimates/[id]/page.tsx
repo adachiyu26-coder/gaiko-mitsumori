@@ -15,6 +15,7 @@ import { SaveAsTemplateButton } from "@/components/estimates/save-as-template-bu
 import { CreateVersionButton } from "@/components/estimates/create-version-button";
 import { ShareEstimateButton } from "@/components/estimates/share-estimate-button";
 import { ESTIMATE_STATUS_CONFIG } from "@/lib/constants/status";
+import { WinProbability } from "@/components/estimates/win-probability";
 
 const statusConfig = ESTIMATE_STATUS_CONFIG;
 
@@ -347,6 +348,15 @@ export default async function EstimateDetailPage({
           )}
         </CardContent>
       </Card>
+
+      {/* Win Probability */}
+      {showCost && (estimate.status === "draft" || estimate.status === "submitted") && (
+        <WinProbability
+          totalAmount={Number(estimate.totalAmount)}
+          grossProfitRate={Number(estimate.grossProfitRate)}
+          customerId={estimate.customerId}
+        />
+      )}
 
       {/* Notes */}
       {(estimate.note || estimate.paymentTerms) && (

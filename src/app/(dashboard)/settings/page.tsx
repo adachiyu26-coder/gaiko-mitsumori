@@ -4,16 +4,20 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CompanySettingsForm } from "@/components/settings/company-settings-form";
 import { UserManagement } from "@/components/settings/user-management";
+import { NotificationSettings } from "@/components/settings/notification-settings";
 
 export default async function SettingsPage() {
   const user = await requireUser();
   const isOwner = canManageUsers(user.role);
 
-  const [company, users] = await Promise.all([
+  const [company, users, notifPref] = await Promise.all([
     prisma.company.findUnique({ where: { id: user.companyId } }),
     prisma.user.findMany({
       where: { companyId: user.companyId },
       orderBy: { createdAt: "asc" },
+    }),
+    prisma.notificationPreference.findUnique({
+      where: { userId: user.id },
     }),
   ]);
 
@@ -27,6 +31,7 @@ export default async function SettingsPage() {
         <TabsList>
           <TabsTrigger value="company">会社設定</TabsTrigger>
           <TabsTrigger value="users">ユーザー管理</TabsTrigger>
+          <TabsTrigger value="notifications">通知設定</TabsTrigger>
         </TabsList>
 
         <TabsContent value="company" className="mt-6">
@@ -71,6 +76,20 @@ export default async function SettingsPage() {
               />
             </CardContent>
           </Card>
+        </TabsContent>
+        <TabsContent value="notifications" className="mt-6">
+          <NotificationSettings
+            preferences={notifPref ? {
+              emailEnabled: notifPref.emailEnabled,
+              emailExpiryWarning: notifPref.emailExpiryWarning,
+              emailStatusChange: notifPref.emailStatusChange,
+              emailCustomerAction: notifPref.emailCustomerAction,
+              lineEnabled: notifPref.lineEnabled,
+              lineUserId: notifPref.lineUserId,
+              expiryWarningDays: notifPref.expiryWarningDays,
+            } : null}
+            userId={user.id}
+          />
         </TabsContent>
       </Tabs>
     </div>

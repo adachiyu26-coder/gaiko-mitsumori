@@ -48,8 +48,11 @@ model User {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  company   Company    @relation(fields: [companyId], references: [id])
-  estimates Estimate[]
+  company                Company                 @relation(fields: [companyId], references: [id])
+  estimates              Estimate[]
+  unitPriceHistories     UnitPriceHistory[]
+  notificationPreference NotificationPreference?
+  notificationLogs       NotificationLog[]
 
   @@index([companyId])
   @@map("users")
@@ -177,9 +180,10 @@ model UnitPriceMaster {
   createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt     DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  company       Company        @relation(fields: [companyId], references: [id])
-  category      Category?      @relation(fields: [categoryId], references: [id])
-  estimateItems EstimateItem[]
+  company        Company            @relation(fields: [companyId], references: [id])
+  category       Category?          @relation(fields: [categoryId], references: [id])
+  estimateItems  EstimateItem[]
+  priceHistories UnitPriceHistory[]
 
   @@index([companyId, isActive])
   @@index([companyId, categoryId])
@@ -241,6 +245,74 @@ model TemplateItem {
   category   Category?     @relation(fields: [categoryId], references: [id])
 
   @@map("template_items")
+}
+
+model UnitPriceHistory {
+  id              String   @id @default(uuid()) @db.Uuid
+  unitPriceMasterId String @map("unit_price_master_id") @db.Uuid
+  previousPrice   Decimal  @map("previous_price") @db.Decimal(12, 0)
+  newPrice        Decimal  @map("new_price") @db.Decimal(12, 0)
+  previousCost    Decimal? @map("previous_cost") @db.Decimal(12, 0)
+  newCost         Decimal? @map("new_cost") @db.Decimal(12, 0)
+  changeReason    String?  @map("change_reason") @db.VarChar(200)
+  changedBy       String   @map("changed_by") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  unitPriceMaster UnitPriceMaster @relation(fields: [unitPriceMasterId], references: [id], onDelete: Cascade)
+  user            User            @relation(fields: [changedBy], references: [id])
+
+  @@index([unitPriceMasterId])
+  @@map("unit_price_history")
+}
+
+model ManufacturerCatalog {
+  id            String   @id @default(uuid()) @db.Uuid
+  manufacturer  String   @db.VarChar(100)
+  productName   String   @map("product_name") @db.VarChar(200)
+  productCode   String?  @map("product_code") @db.VarChar(100)
+  specification String?  @db.VarChar(500)
+  unit          String   @db.VarChar(10)
+  listPrice     Decimal  @map("list_price") @db.Decimal(12, 0)
+  categoryName  String?  @map("category_name") @db.VarChar(50)
+  isActive      Boolean  @default(true) @map("is_active")
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([manufacturer])
+  @@index([productName])
+  @@map("manufacturer_catalog")
+}
+
+model NotificationPreference {
+  id                    String  @id @default(uuid()) @db.Uuid
+  userId                String  @unique @map("user_id") @db.Uuid
+  emailEnabled          Boolean @default(true) @map("email_enabled")
+  emailExpiryWarning    Boolean @default(true) @map("email_expiry_warning")
+  emailStatusChange     Boolean @default(true) @map("email_status_change")
+  emailCustomerAction   Boolean @default(true) @map("email_customer_action")
+  lineEnabled           Boolean @default(false) @map("line_enabled")
+  lineUserId            String? @map("line_user_id") @db.VarChar(100)
+  expiryWarningDays     Int     @default(7) @map("expiry_warning_days")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("notification_preferences")
+}
+
+model NotificationLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  type      String   @db.VarChar(50)
+  channel   String   @db.VarChar(20)
+  title     String   @db.VarChar(200)
+  body      String?
+  sentAt    DateTime @default(now()) @map("sent_at") @db.Timestamptz
+  isRead    Boolean  @default(false) @map("is_read")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, isRead])
+  @@map("notification_logs")
 }
 
 model EstimateComment {
