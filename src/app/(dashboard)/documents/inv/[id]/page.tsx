@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/table";
 import { ArrowLeft } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils/format";
+import { InvoiceStatusActions } from "@/components/documents/document-status-actions";
 
 const statusLabels: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   draft: { label: "下書き", variant: "secondary" },
@@ -55,6 +56,7 @@ export default async function InvoiceDetailPage({
           </div>
           <p className="text-sm text-muted-foreground">{invoice.invoiceNumber}</p>
         </div>
+        <InvoiceStatusActions id={id} currentStatus={invoice.status} totalAmount={Number(invoice.totalAmount)} />
       </div>
 
       <Card>

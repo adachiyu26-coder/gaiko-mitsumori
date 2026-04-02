@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/table";
 import { ArrowLeft } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils/format";
+import { POStatusActions } from "@/components/documents/document-status-actions";
 
 const statusLabels: Record<string, { label: string; variant: "default" | "secondary" | "outline" }> = {
   draft: { label: "下書き", variant: "secondary" },
@@ -51,6 +52,7 @@ export default async function PurchaseOrderDetailPage({
           </div>
           <p className="text-sm text-muted-foreground">{po.orderNumber}</p>
         </div>
+        <POStatusActions id={id} currentStatus={po.status} />
       </div>
 
       <Card>

@@ -29,16 +29,16 @@ interface Props {
   projectEndDate: string;
 }
 
+const QUICK_PROGRESS = [0, 25, 50, 75, 100];
+
 export function GanttChart({ projectId, tasks, users, canEdit, projectStartDate, projectEndDate }: Props) {
   const [isPending, startTransition] = useTransition();
   const [newTaskName, setNewTaskName] = useState("");
 
-  // Calculate date range for chart
   const start = new Date(projectStartDate);
   const end = new Date(projectEndDate);
   const totalDays = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / 86400000));
 
-  // Generate date labels (weekly)
   const dateLabels: string[] = [];
   const labelDate = new Date(start);
   while (labelDate <= end) {
@@ -122,14 +122,15 @@ export function GanttChart({ projectId, tasks, users, canEdit, projectStartDate,
         {tasks.length === 0 ? (
           <p className="text-muted-foreground text-sm py-8 text-center">タスクがありません</p>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="space-y-0">
             {/* Date header */}
-            <div className="flex border-b min-w-[800px]">
-              <div className="w-52 shrink-0 px-2 py-1 text-xs font-medium text-muted-foreground border-r">タスク</div>
-              <div className="w-20 shrink-0 px-1 py-1 text-xs font-medium text-muted-foreground border-r text-center">進捗</div>
-              <div className="flex-1 flex relative">
+            <div className="flex border-b overflow-x-auto">
+              <div className="w-44 shrink-0 px-2 py-1 text-xs font-medium text-muted-foreground border-r">タスク</div>
+              <div className="w-36 shrink-0 px-1 py-1 text-xs font-medium text-muted-foreground border-r text-center">進捗</div>
+              <div className="w-48 shrink-0 px-1 py-1 text-xs font-medium text-muted-foreground border-r text-center">期間</div>
+              <div className="flex-1 flex relative min-w-[200px]">
                 {dateLabels.map((label, i) => (
-                  <div key={i} className="text-[10px] text-muted-foreground absolute" style={{ left: `${(i * 7 / totalDays) * 100}%` }}>
+                  <div key={i} className="text-[10px] text-muted-foreground absolute top-1" style={{ left: `${(i * 7 / totalDays) * 100}%` }}>
                     {label}
                   </div>
                 ))}
@@ -140,73 +141,107 @@ export function GanttChart({ projectId, tasks, users, canEdit, projectStartDate,
             {tasks.map((task) => {
               const barStyle = getBarStyle(task);
               return (
-                <div key={task.id} className="flex border-b hover:bg-muted/30 min-w-[800px]">
+                <div key={task.id} className="flex border-b hover:bg-muted/30 overflow-x-auto">
                   {/* Task name */}
-                  <div className="w-52 shrink-0 px-2 py-2 flex items-center gap-1 border-r">
+                  <div className="w-44 shrink-0 px-2 py-2 flex items-center gap-1 border-r">
+                    <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: task.color }} />
                     <span className="text-sm truncate flex-1">{task.name}</span>
                     {canEdit && (
-                      <button onClick={() => handleDeleteTask(task.id)} className="text-muted-foreground hover:text-destructive shrink-0">
+                      <button onClick={() => handleDeleteTask(task.id)} className="text-muted-foreground hover:text-destructive shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                         <Trash2 className="h-3 w-3" />
                       </button>
                     )}
                   </div>
 
-                  {/* Progress */}
-                  <div className="w-20 shrink-0 px-1 py-2 flex items-center border-r">
+                  {/* Progress - slider + quick buttons */}
+                  <div className="w-36 shrink-0 px-1 py-1 flex flex-col items-center justify-center border-r gap-1">
                     {canEdit ? (
-                      <Input
-                        type="number"
-                        value={task.progress}
-                        onChange={(e) => handleUpdateProgress(task.id, parseInt(e.target.value) || 0)}
-                        className="h-6 text-xs w-full text-center"
-                        min={0}
-                        max={100}
-                      />
+                      <>
+                        {/* Slider */}
+                        <div className="flex items-center gap-1 w-full px-1">
+                          <input
+                            type="range"
+                            min={0}
+                            max={100}
+                            step={5}
+                            value={task.progress}
+                            onChange={(e) => handleUpdateProgress(task.id, parseInt(e.target.value))}
+                            className="w-full h-2 accent-current cursor-pointer"
+                            style={{ accentColor: task.color }}
+                          />
+                          <span className="text-xs font-mono w-8 text-right shrink-0">{task.progress}%</span>
+                        </div>
+                        {/* Quick buttons */}
+                        <div className="flex gap-0.5">
+                          {QUICK_PROGRESS.map((v) => (
+                            <button
+                              key={v}
+                              onClick={() => handleUpdateProgress(task.id, v)}
+                              className={`text-[9px] px-1 py-0 rounded border transition-colors ${
+                                task.progress === v
+                                  ? "bg-foreground text-background border-foreground"
+                                  : "border-border text-muted-foreground hover:border-foreground hover:text-foreground"
+                              }`}
+                            >
+                              {v}
+                            </button>
+                          ))}
+                        </div>
+                      </>
                     ) : (
-                      <span className="text-xs w-full text-center">{task.progress}%</span>
+                      <div className="flex items-center gap-1">
+                        <div className="w-16 h-2 bg-muted rounded-full overflow-hidden">
+                          <div className="h-full rounded-full" style={{ width: `${task.progress}%`, backgroundColor: task.color }} />
+                        </div>
+                        <span className="text-xs font-mono">{task.progress}%</span>
+                      </div>
                     )}
                   </div>
 
-                  {/* Gantt bar */}
-                  <div className="flex-1 py-2 px-1 relative">
-                    <div className="h-6 relative w-full bg-gray-50 rounded">
-                      {/* Bar background */}
-                      <div
-                        className="absolute top-0 h-full rounded opacity-30"
-                        style={{ ...barStyle, backgroundColor: task.color }}
-                      />
-                      {/* Progress fill */}
-                      <div
-                        className="absolute top-0 h-full rounded"
-                        style={{
-                          left: barStyle.left,
-                          width: `calc(${barStyle.width} * ${task.progress / 100})`,
-                          backgroundColor: task.color,
-                        }}
-                      />
-                      {/* Label */}
-                      <span className="absolute inset-0 flex items-center justify-center text-[10px] font-medium">
-                        {task.progress > 0 && `${task.progress}%`}
-                      </span>
-                    </div>
-                    {/* Date inputs */}
-                    {canEdit && (
-                      <div className="flex gap-1 mt-1">
+                  {/* Date range */}
+                  <div className="w-48 shrink-0 px-1 py-2 flex items-center gap-1 border-r">
+                    {canEdit ? (
+                      <>
                         <input
                           type="date"
                           value={task.startDate ?? ""}
                           onChange={(e) => handleUpdateDate(task.id, "startDate", e.target.value)}
-                          className="text-[10px] border rounded px-1 h-5 w-24"
+                          className="text-[11px] border rounded px-1 h-7 w-[88px] bg-background"
                         />
                         <span className="text-[10px] text-muted-foreground">〜</span>
                         <input
                           type="date"
                           value={task.endDate ?? ""}
                           onChange={(e) => handleUpdateDate(task.id, "endDate", e.target.value)}
-                          className="text-[10px] border rounded px-1 h-5 w-24"
+                          className="text-[11px] border rounded px-1 h-7 w-[88px] bg-background"
                         />
-                      </div>
+                      </>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">
+                        {task.startDate?.slice(5)} 〜 {task.endDate?.slice(5)}
+                      </span>
                     )}
+                  </div>
+
+                  {/* Gantt bar */}
+                  <div className="flex-1 py-2 px-1 relative min-w-[200px]">
+                    <div className="h-7 relative w-full bg-gray-100 rounded">
+                      <div
+                        className="absolute top-0 h-full rounded opacity-25"
+                        style={{ ...barStyle, backgroundColor: task.color }}
+                      />
+                      <div
+                        className="absolute top-0 h-full rounded transition-all duration-300"
+                        style={{
+                          left: barStyle.left,
+                          width: `calc(${barStyle.width} * ${task.progress / 100})`,
+                          backgroundColor: task.color,
+                        }}
+                      />
+                      <span className="absolute inset-0 flex items-center justify-center text-[10px] font-semibold text-foreground/70">
+                        {task.progress > 0 && `${task.progress}%`}
+                      </span>
+                    </div>
                   </div>
                 </div>
               );
