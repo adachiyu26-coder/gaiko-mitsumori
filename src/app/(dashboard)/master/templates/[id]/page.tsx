@@ -64,6 +64,12 @@ export default async function TemplateDetailPage({
         </div>
         {canEdit && !template.isSystem && (
           <div className="flex gap-2">
+            <Link href={`/master/templates/${id}/edit`}>
+              <Button variant="outline" size="sm">
+                <Pencil className="mr-2 h-4 w-4" />
+                編集
+              </Button>
+            </Link>
             <DeleteTemplateButton templateId={id} />
           </div>
         )}

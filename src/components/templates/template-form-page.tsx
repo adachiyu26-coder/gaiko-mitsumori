@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { ArrowLeft, Save, Plus, Trash2 } from "lucide-react";
-import { createTemplate } from "@/app/(dashboard)/master/templates/actions";
+import { createTemplate, updateTemplate } from "@/app/(dashboard)/master/templates/actions";
 import { toast } from "sonner";
 import Link from "next/link";
 
@@ -29,15 +29,28 @@ function tempId() {
   return `temp-${++counter}`;
 }
 
-export function TemplateFormPage() {
+interface TemplateFormPageProps {
+  templateId?: string;
+  defaultValues?: {
+    name: string;
+    description: string;
+    isShared: boolean;
+    items: TemplateItem[];
+  };
+}
+
+export function TemplateFormPage({ templateId, defaultValues }: TemplateFormPageProps) {
+  const isEditMode = !!templateId;
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [isShared, setIsShared] = useState(false);
-  const [items, setItems] = useState<TemplateItem[]>([
-    { id: tempId(), level: 1, itemName: "新規工種", specification: "", quantity: "", unit: "", unitPrice: "", costPrice: "" },
-  ]);
+  const [name, setName] = useState(defaultValues?.name ?? "");
+  const [description, setDescription] = useState(defaultValues?.description ?? "");
+  const [isShared, setIsShared] = useState(defaultValues?.isShared ?? false);
+  const [items, setItems] = useState<TemplateItem[]>(
+    defaultValues?.items ?? [
+      { id: tempId(), level: 1, itemName: "新規工種", specification: "", quantity: "", unit: "", unitPrice: "", costPrice: "" },
+    ]
+  );
 
   const addItem = (level: number) => {
     const levelNames: Record<number, string> = { 1: "新規工種", 2: "新規大項目", 3: "新規中項目", 4: "新規品名" };
@@ -73,7 +86,7 @@ export function TemplateFormPage() {
 
     startTransition(async () => {
       try {
-        await createTemplate({
+        const payload = {
           name: name.trim(),
           description: description.trim() || null,
           isShared,
@@ -87,11 +100,17 @@ export function TemplateFormPage() {
             unitPrice: item.unitPrice ? Number(item.unitPrice) : null,
             costPrice: item.costPrice ? Number(item.costPrice) : null,
           })),
-        });
-        toast.success("テンプレートを作成しました");
+        };
+        if (isEditMode) {
+          await updateTemplate(templateId!, payload);
+          toast.success("テンプレートを更新しました");
+        } else {
+          await createTemplate(payload);
+          toast.success("テンプレートを作成しました");
+        }
         router.push("/master/templates");
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : "作成に失敗しました");
+        toast.error(err instanceof Error ? err.message : (isEditMode ? "更新に失敗しました" : "作成に失敗しました"));
       }
     });
   };
@@ -112,11 +131,11 @@ export function TemplateFormPage() {
               <ArrowLeft className="h-4 w-4" />
             </Button>
           </Link>
-          <h1 className="text-2xl font-bold">新規テンプレート作成</h1>
+          <h1 className="text-2xl font-bold">{isEditMode ? "テンプレート編集" : "新規テンプレート作成"}</h1>
         </div>
         <Button onClick={handleSave} disabled={isPending} className="bg-brand hover:bg-brand-hover">
           <Save className="mr-2 h-4 w-4" />
-          {isPending ? "保存中..." : "保存"}
+          {isPending ? "保存中..." : (isEditMode ? "更新" : "保存")}
         </Button>
       </div>
 

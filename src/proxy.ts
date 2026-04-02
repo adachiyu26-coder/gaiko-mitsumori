@@ -6,6 +6,16 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Public routes: skip auth
+  const pathname = request.nextUrl.pathname;
+  if (
+    pathname.startsWith("/quotes") ||
+    pathname.startsWith("/api/quotes") ||
+    pathname.startsWith("/api/seed")
+  ) {
+    return NextResponse.next();
+  }
+
   const { updateSession } = await import("@/lib/supabase/middleware");
   return await updateSession(request);
 }

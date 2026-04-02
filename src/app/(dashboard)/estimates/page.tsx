@@ -30,11 +30,12 @@ const statusConfig = ESTIMATE_STATUS_CONFIG;
 export default async function EstimatesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; status?: string; page?: string; dateFrom?: string; dateTo?: string; amountMin?: string; amountMax?: string }>;
+  searchParams: Promise<{ q?: string; status?: string; page?: string; dateFrom?: string; dateTo?: string; amountMin?: string; amountMax?: string; sort?: string }>;
 }) {
   const user = await requireUser();
   const params = await searchParams;
   const q = params.q?.trim() ?? "";
+  const sort = params.sort ?? "createdAt_desc";
   const status = params.status && params.status !== "all" ? params.status : undefined;
   const dateFrom = params.dateFrom ?? "";
   const dateTo = params.dateTo ?? "";
@@ -68,11 +69,20 @@ export default async function EstimatesPage({
     ...(Object.keys(totalAmountFilter).length > 0 ? { totalAmount: totalAmountFilter } : {}),
   };
 
+  const [sortField, sortDir] = sort.split("_");
+  const orderByMap: Record<string, Record<string, string>> = {
+    createdAt: { createdAt: sortDir ?? "desc" },
+    totalAmount: { totalAmount: sortDir ?? "desc" },
+    estimateDate: { estimateDate: sortDir ?? "desc" },
+    title: { title: sortDir ?? "asc" },
+  };
+  const orderBy = orderByMap[sortField] ?? { createdAt: "desc" };
+
   const [estimates, total] = await Promise.all([
     prisma.estimate.findMany({
       where,
       include: { customer: true, creator: true },
-      orderBy: { createdAt: "desc" },
+      orderBy,
       skip: (page - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
     }),
@@ -94,8 +104,23 @@ export default async function EstimatesPage({
     if (dateTo) p.set("dateTo", dateTo);
     if (amountMin != null) p.set("amountMin", String(amountMin));
     if (amountMax != null) p.set("amountMax", String(amountMax));
+    if (sort !== "createdAt_desc") p.set("sort", sort);
     const qs = p.toString();
     return `/estimates${qs ? `?${qs}` : ""}`;
+  };
+
+  const sortUrl = (field: string) => {
+    const [currentField, currentDir] = sort.split("_");
+    const nextDir = currentField === field && currentDir === "asc" ? "desc" : "asc";
+    const p = new URLSearchParams();
+    if (q) p.set("q", q);
+    if (params.status && params.status !== "all") p.set("status", params.status);
+    if (dateFrom) p.set("dateFrom", dateFrom);
+    if (dateTo) p.set("dateTo", dateTo);
+    if (amountMin != null) p.set("amountMin", String(amountMin));
+    if (amountMax != null) p.set("amountMax", String(amountMax));
+    p.set("sort", `${field}_${nextDir}`);
+    return `/estimates?${p.toString()}`;
   };
 
   return (
@@ -201,12 +226,32 @@ export default async function EstimatesPage({
                   <TableHeader>
                     <TableRow>
                       <TableHead>見積番号</TableHead>
-                      <TableHead>件名</TableHead>
+                      <TableHead>
+                        <Link href={sortUrl("title")} className="flex items-center gap-1 hover:text-foreground">
+                          件名
+                          {sort.startsWith("title_") && <span className="text-xs">{sort.endsWith("asc") ? "↑" : "↓"}</span>}
+                        </Link>
+                      </TableHead>
                       <TableHead>顧客</TableHead>
-                      <TableHead className="text-right">合計金額</TableHead>
+                      <TableHead className="text-right">
+                        <Link href={sortUrl("totalAmount")} className="flex items-center gap-1 justify-end hover:text-foreground">
+                          合計金額
+                          {sort.startsWith("totalAmount_") && <span className="text-xs">{sort.endsWith("asc") ? "↑" : "↓"}</span>}
+                        </Link>
+                      </TableHead>
                       <TableHead>ステータス</TableHead>
-                      <TableHead>見積日</TableHead>
-                      <TableHead>作成者</TableHead>
+                      <TableHead>
+                        <Link href={sortUrl("estimateDate")} className="flex items-center gap-1 hover:text-foreground">
+                          見積日
+                          {sort.startsWith("estimateDate_") && <span className="text-xs">{sort.endsWith("asc") ? "↑" : "↓"}</span>}
+                        </Link>
+                      </TableHead>
+                      <TableHead>
+                        <Link href={sortUrl("createdAt")} className="flex items-center gap-1 hover:text-foreground">
+                          作成日
+                          {sort.startsWith("createdAt_") && <span className="text-xs">{sort.endsWith("asc") ? "↑" : "↓"}</span>}
+                        </Link>
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -235,7 +280,7 @@ export default async function EstimatesPage({
                             <Badge variant={s.variant}>{s.label}</Badge>
                           </TableCell>
                           <TableCell>{formatDate(estimate.estimateDate)}</TableCell>
-                          <TableCell className="text-xs">{estimate.creator.name}</TableCell>
+                          <TableCell className="text-xs">{formatDate(estimate.createdAt)}</TableCell>
                         </TableRow>
                       );
                     })}
