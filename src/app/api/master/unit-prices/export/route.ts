@@ -9,6 +9,7 @@ export async function GET() {
     where: { companyId: user.companyId },
     include: { category: true },
     orderBy: [{ category: { sortOrder: "asc" } }, { itemName: "asc" }],
+    take: 10000,
   });
 
   /** CSVフィールドをエスケープ（カンマ・改行・ダブルクォート対応） */

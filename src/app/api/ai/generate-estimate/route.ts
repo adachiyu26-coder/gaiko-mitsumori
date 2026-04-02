@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { requireUser } from "@/lib/auth";
+import { rateLimit } from "@/lib/utils/rate-limit";
 
 export async function POST(request: NextRequest) {
   const user = await requireUser();
+
+  const { success } = rateLimit(`ai:${user.id}`, 10, 60 * 1000); // 10 per minute
+  if (!success) {
+    return NextResponse.json({ error: "リクエストが多すぎます。しばらく待ってから再試行してください。" }, { status: 429 });
+  }
   const body = await request.json();
   const { description, imageBase64 } = body;
 

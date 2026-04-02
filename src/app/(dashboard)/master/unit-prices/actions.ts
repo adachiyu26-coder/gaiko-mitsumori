@@ -22,29 +22,33 @@ export async function updateUnitPrice(id: string, data: UnitPriceFormData) {
   if (!canEditUnitPriceMaster(user.role)) throw new Error("権限がありません");
   const validated = unitPriceSchema.parse(data);
 
-  const existing = await prisma.unitPriceMaster.findUnique({
-    where: { id, companyId: user.companyId },
-    select: { unitPrice: true, costPrice: true },
-  });
-
-  await prisma.unitPriceMaster.update({
-    where: { id, companyId: user.companyId },
-    data: validated,
-  });
-
-  if (existing && (Number(existing.unitPrice) !== validated.unitPrice ||
-      (existing.costPrice != null && validated.costPrice != null && Number(existing.costPrice) !== validated.costPrice))) {
-    await prisma.unitPriceHistory.create({
-      data: {
-        unitPriceMasterId: id,
-        previousPrice: existing.unitPrice,
-        newPrice: validated.unitPrice,
-        previousCost: existing.costPrice,
-        newCost: validated.costPrice ?? null,
-        changedBy: user.id,
-      },
+  await prisma.$transaction(async (tx) => {
+    const existing = await tx.unitPriceMaster.findUnique({
+      where: { id, companyId: user.companyId },
+      select: { unitPrice: true, costPrice: true },
     });
-  }
+    if (!existing) throw new Error("単価が見つかりません");
+
+    await tx.unitPriceMaster.update({
+      where: { id, companyId: user.companyId },
+      data: validated,
+    });
+
+    // Record price history if price changed
+    if (Number(existing.unitPrice) !== validated.unitPrice ||
+        (existing.costPrice != null && validated.costPrice != null && Number(existing.costPrice) !== validated.costPrice)) {
+      await tx.unitPriceHistory.create({
+        data: {
+          unitPriceMasterId: id,
+          previousPrice: existing.unitPrice,
+          newPrice: validated.unitPrice,
+          previousCost: existing.costPrice,
+          newCost: validated.costPrice ?? null,
+          changedBy: user.id,
+        },
+      });
+    }
+  });
 
   revalidatePath("/master/unit-prices");
 }
@@ -79,32 +83,30 @@ export async function bulkAdjustPrices(data: {
   };
   if (data.categoryId) where.categoryId = data.categoryId;
 
-  const items = await prisma.unitPriceMaster.findMany({ where: where as any });
+  const items = await prisma.unitPriceMaster.findMany({ where });
 
   const multiplier = 1 + data.adjustPercent / 100;
 
-  const operations = items.flatMap((item) => {
-    const updateData: Record<string, unknown> = {};
-    if (data.adjustType === "unitPrice" || data.adjustType === "both") {
-      updateData.unitPrice = Math.floor(Number(item.unitPrice) * multiplier);
-    }
-    if ((data.adjustType === "costPrice" || data.adjustType === "both") && item.costPrice) {
-      updateData.costPrice = Math.floor(Number(item.costPrice) * multiplier);
-    }
+  await prisma.$transaction(async (tx) => {
+    for (const item of items) {
+      const updateData: Record<string, unknown> = {};
+      if (data.adjustType === "unitPrice" || data.adjustType === "both") {
+        updateData.unitPrice = Math.floor(Number(item.unitPrice) * multiplier);
+      }
+      if ((data.adjustType === "costPrice" || data.adjustType === "both") && item.costPrice) {
+        updateData.costPrice = Math.floor(Number(item.costPrice) * multiplier);
+      }
 
-    const ops = [
-      prisma.unitPriceMaster.update({
+      await tx.unitPriceMaster.update({
         where: { id: item.id },
         data: updateData,
-      }),
-    ];
+      });
 
-    const newPrice = updateData.unitPrice != null ? Number(updateData.unitPrice) : Number(item.unitPrice);
-    const newCost = updateData.costPrice != null ? Number(updateData.costPrice) : (item.costPrice != null ? Number(item.costPrice) : null);
+      const newPrice = updateData.unitPrice != null ? Number(updateData.unitPrice) : Number(item.unitPrice);
+      const newCost = updateData.costPrice != null ? Number(updateData.costPrice) : (item.costPrice != null ? Number(item.costPrice) : null);
 
-    if (Number(item.unitPrice) !== newPrice || (item.costPrice != null && newCost != null && Number(item.costPrice) !== newCost)) {
-      ops.push(
-        prisma.unitPriceHistory.create({
+      if (Number(item.unitPrice) !== newPrice || (item.costPrice != null && newCost != null && Number(item.costPrice) !== newCost)) {
+        await tx.unitPriceHistory.create({
           data: {
             unitPriceMasterId: item.id,
             previousPrice: item.unitPrice,
@@ -113,14 +115,10 @@ export async function bulkAdjustPrices(data: {
             newCost: newCost,
             changedBy: user.id,
           },
-        }) as any
-      );
+        });
+      }
     }
-
-    return ops;
   });
-
-  await prisma.$transaction(operations);
 
   revalidatePath("/master/unit-prices");
   return { count: items.length };

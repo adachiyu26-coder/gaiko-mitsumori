@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { requireUser, canEditUnitPriceMaster } from "@/lib/auth";
+import { rateLimit } from "@/lib/utils/rate-limit";
 
 function parseCsvLine(line: string): string[] {
   const fields: string[] = [];
@@ -27,6 +28,9 @@ export async function POST(request: NextRequest) {
   if (!canEditUnitPriceMaster(user.role)) {
     return NextResponse.json({ error: "権限がありません" }, { status: 403 });
   }
+
+  const { success } = rateLimit(`catalog:${user.id}`, 5, 60 * 1000);
+  if (!success) return NextResponse.json({ error: "リクエストが多すぎます" }, { status: 429 });
 
   const { csvText } = await request.json();
   if (!csvText) return NextResponse.json({ error: "CSVデータがありません" }, { status: 400 });

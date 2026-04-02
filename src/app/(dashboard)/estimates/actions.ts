@@ -161,7 +161,7 @@ export async function updateEstimate(
         siteAddress: data.siteAddress || null,
         estimateDate: new Date(data.estimateDate),
         expiryDate: data.expiryDate ? new Date(data.expiryDate) : null,
-        status: data.status || undefined,
+        // Status changes must go through updateEstimateStatus for validation
         expenseRate: data.expenseRate,
         discountType: data.discountType,
         discountValue: data.discountValue,
@@ -337,73 +337,73 @@ export async function createNewVersion(estimateId: string) {
   const user = await requireUser();
   if (!canEditEstimate(user.role)) throw new Error("権限がありません");
 
-  const original = await prisma.estimate.findUnique({
-    where: { id: estimateId, companyId: user.companyId },
-    include: { items: true },
-  });
+  const newEstimate = await prisma.$transaction(async (tx) => {
+    const original = await tx.estimate.findUnique({
+      where: { id: estimateId, companyId: user.companyId },
+      include: { items: true },
+    });
+    if (!original) throw new Error("見積が見つかりません");
 
-  if (!original) throw new Error("見積が見つかりません");
-
-  // Get the latest version number for this estimate number
-  const latestVersion = await prisma.estimate.findFirst({
-    where: {
-      companyId: user.companyId,
-      estimateNumber: original.estimateNumber,
-    },
-    orderBy: { version: "desc" },
-    select: { version: true },
-  });
-
-  const newVersion = (latestVersion?.version ?? original.version) + 1;
-
-  const newEstimate = await prisma.estimate.create({
-    data: {
-      companyId: user.companyId,
-      createdBy: user.id,
-      estimateNumber: original.estimateNumber,
-      version: newVersion,
-      parentEstimateId: original.id,
-      title: original.title,
-      customerId: original.customerId,
-      siteAddress: original.siteAddress,
-      estimateDate: new Date(),
-      expiryDate: original.expiryDate,
-      status: "draft",
-      expenseRate: original.expenseRate,
-      discountType: original.discountType,
-      discountValue: original.discountValue,
-      taxRate: original.taxRate,
-      note: original.note,
-      internalMemo: original.internalMemo,
-      paymentTerms: original.paymentTerms,
-      subtotal: original.subtotal,
-      expenseAmount: original.expenseAmount,
-      discountAmount: original.discountAmount,
-      taxAmount: original.taxAmount,
-      totalAmount: original.totalAmount,
-      costSubtotal: original.costSubtotal,
-      grossProfit: original.grossProfit,
-      grossProfitRate: original.grossProfitRate,
-      items: {
-        create: original.items.map((item) => ({
-          level: item.level,
-          parentItemId: item.parentItemId,
-          sortOrder: item.sortOrder,
-          itemName: item.itemName,
-          specification: item.specification,
-          quantity: item.quantity,
-          unit: item.unit,
-          unitPrice: item.unitPrice,
-          costPrice: item.costPrice,
-          amount: item.amount,
-          costAmount: item.costAmount,
-          categoryId: item.categoryId,
-          unitPriceMasterId: item.unitPriceMasterId,
-          note: item.note,
-          isAlternative: item.isAlternative,
-        })),
+    const latestVersion = await tx.estimate.findFirst({
+      where: {
+        companyId: user.companyId,
+        estimateNumber: original.estimateNumber,
       },
-    },
+      orderBy: { version: "desc" },
+      select: { version: true },
+    });
+
+    const newVersion = (latestVersion?.version ?? original.version) + 1;
+
+    return tx.estimate.create({
+      data: {
+        companyId: user.companyId,
+        createdBy: user.id,
+        estimateNumber: original.estimateNumber,
+        version: newVersion,
+        parentEstimateId: original.id,
+        title: original.title,
+        customerId: original.customerId,
+        siteAddress: original.siteAddress,
+        estimateDate: new Date(),
+        expiryDate: original.expiryDate,
+        status: "draft",
+        expenseRate: original.expenseRate,
+        discountType: original.discountType,
+        discountValue: original.discountValue,
+        taxRate: original.taxRate,
+        note: original.note,
+        internalMemo: original.internalMemo,
+        paymentTerms: original.paymentTerms,
+        subtotal: original.subtotal,
+        expenseAmount: original.expenseAmount,
+        discountAmount: original.discountAmount,
+        taxAmount: original.taxAmount,
+        totalAmount: original.totalAmount,
+        costSubtotal: original.costSubtotal,
+        grossProfit: original.grossProfit,
+        grossProfitRate: original.grossProfitRate,
+        items: {
+          create: original.items.map((item) => ({
+            level: item.level,
+            parentItemId: item.parentItemId,
+            sortOrder: item.sortOrder,
+            itemName: item.itemName,
+            specification: item.specification,
+            quantity: item.quantity,
+            unit: item.unit,
+            unitPrice: item.unitPrice,
+            costPrice: item.costPrice,
+            amount: item.amount,
+            costAmount: item.costAmount,
+            categoryId: item.categoryId,
+            unitPriceMasterId: item.unitPriceMasterId,
+            note: item.note,
+            isAlternative: item.isAlternative,
+          })),
+        },
+      },
+    });
   });
 
   revalidatePath("/estimates");
@@ -415,25 +415,27 @@ export async function shareEstimate(estimateId: string) {
   const user = await requireUser();
   if (!canEditEstimate(user.role)) throw new Error("権限がありません");
 
-  const estimate = await prisma.estimate.findUnique({
-    where: { id: estimateId, companyId: user.companyId },
-    select: { shareToken: true },
-  });
-  if (!estimate) throw new Error("見積が見つかりません");
-
-  // Generate token if not already shared
-  if (estimate.shareToken) {
-    return { token: estimate.shareToken };
-  }
-
   const crypto = await import("crypto");
-  const token = crypto.randomBytes(32).toString("hex");
 
-  await prisma.estimate.update({
-    where: { id: estimateId, companyId: user.companyId },
-    data: { shareToken: token, sharedAt: new Date() },
+  const result = await prisma.$transaction(async (tx) => {
+    const estimate = await tx.estimate.findUnique({
+      where: { id: estimateId, companyId: user.companyId },
+      select: { shareToken: true },
+    });
+    if (!estimate) throw new Error("見積が見つかりません");
+
+    if (estimate.shareToken) {
+      return { token: estimate.shareToken };
+    }
+
+    const token = crypto.randomBytes(32).toString("hex");
+    await tx.estimate.update({
+      where: { id: estimateId, companyId: user.companyId },
+      data: { shareToken: token, sharedAt: new Date() },
+    });
+    return { token };
   });
 
   revalidatePath(`/estimates/${estimateId}`);
-  return { token };
+  return result;
 }

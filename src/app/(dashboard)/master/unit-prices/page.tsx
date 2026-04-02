@@ -52,6 +52,7 @@ export default async function UnitPriceMasterPage({
     where,
     include: { category: true },
     orderBy: [{ category: { sortOrder: "asc" } }, { itemName: "asc" }],
+    take: 500,
   });
 
   const categoriesMapped = categories.map((c) => ({ id: c.id, name: c.name }));

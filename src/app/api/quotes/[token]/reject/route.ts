@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
+import { rateLimit } from "@/lib/utils/rate-limit";
 
 export async function POST(
   request: NextRequest,
@@ -16,6 +17,9 @@ export async function POST(
   if (!estimate) {
     return NextResponse.json({ error: "見積が見つかりません" }, { status: 404 });
   }
+
+  const { success } = rateLimit(`quote:${token}`, 5, 60 * 1000);
+  if (!success) return NextResponse.json({ error: "リクエストが多すぎます" }, { status: 429 });
 
   if (estimate.status !== "submitted") {
     return NextResponse.json({ error: "この見積はお断りできません" }, { status: 400 });

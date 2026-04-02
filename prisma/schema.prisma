@@ -262,6 +262,7 @@ model UnitPriceHistory {
   user            User            @relation(fields: [changedBy], references: [id])
 
   @@index([unitPriceMasterId])
+  @@index([unitPriceMasterId, createdAt])
   @@map("unit_price_history")
 }
 
@@ -280,6 +281,7 @@ model ManufacturerCatalog {
 
   @@index([manufacturer])
   @@index([productName])
+  @@index([isActive, manufacturer])
   @@map("manufacturer_catalog")
 }
 

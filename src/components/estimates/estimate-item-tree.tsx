@@ -69,10 +69,14 @@ export function EstimateItemTree({ showCostPrice }: Props) {
   const [priceStats, setPriceStats] = useState<{ itemName: string; avgPrice: number; minPrice: number; maxPrice: number; dataPoints: number }[]>([]);
 
   useEffect(() => {
-    fetch("/api/ai/price-intelligence")
+    const controller = new AbortController();
+    fetch("/api/ai/price-intelligence", { signal: controller.signal })
       .then((res) => res.ok ? res.json() : [])
       .then(setPriceStats)
-      .catch(() => {}); // Silent fail
+      .catch((e) => {
+        if (e.name !== "AbortError") console.error(e);
+      });
+    return () => controller.abort();
   }, []);
 
   const isCollapsed = (id: string) => collapsed.has(id);

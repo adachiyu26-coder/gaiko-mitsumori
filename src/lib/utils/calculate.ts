@@ -45,12 +45,14 @@ export function recalculateEstimate(
 
   const expenseAmount = Math.floor((subtotal * options.expenseRate) / 100);
 
-  const discountAmount =
+  const discountAmount = Math.min(
+    subtotal + expenseAmount,
     options.discountType === "amount"
       ? options.discountValue
       : Math.floor(
           ((subtotal + expenseAmount) * options.discountValue) / 100
-        );
+        )
+  );
 
   const taxableAmount = subtotal + expenseAmount - discountAmount;
   const taxAmount = Math.floor((taxableAmount * options.taxRate) / 100);

@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CompanySettingsForm } from "@/components/settings/company-settings-form";
 import { UserManagement } from "@/components/settings/user-management";
 import { NotificationSettings } from "@/components/settings/notification-settings";
+import { ProfileSettings } from "@/components/settings/profile-settings";
 
 export default async function SettingsPage() {
   const user = await requireUser();
@@ -27,12 +28,24 @@ export default async function SettingsPage() {
     <div className="max-w-3xl mx-auto space-y-6">
       <h1 className="text-2xl font-bold">設定</h1>
 
-      <Tabs defaultValue="company">
+      <Tabs defaultValue="profile">
         <TabsList>
+          <TabsTrigger value="profile">プロフィール</TabsTrigger>
           <TabsTrigger value="company">会社設定</TabsTrigger>
           <TabsTrigger value="users">ユーザー管理</TabsTrigger>
           <TabsTrigger value="notifications">通知設定</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="profile" className="mt-6">
+          <ProfileSettings
+            user={{
+              id: user.id,
+              name: user.name,
+              email: user.email,
+              role: user.role,
+            }}
+          />
+        </TabsContent>
 
         <TabsContent value="company" className="mt-6">
           <CompanySettingsForm

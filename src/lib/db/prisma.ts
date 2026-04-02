@@ -8,11 +8,20 @@ const globalForPrisma = globalThis as unknown as {
 
 function createPrismaClient() {
   const url = process.env.DATABASE_URL!;
-  const pool = new pg.Pool({ connectionString: url });
+  const pool = new pg.Pool({
+    connectionString: url,
+    max: 20,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 5000,
+  });
+  pool.on("error", (err) => {
+    console.error("Database pool error:", err);
+  });
   const adapter = new PrismaPg(pool);
   return new PrismaClient({ adapter });
 }
 
 export const prisma = globalForPrisma.prisma ?? createPrismaClient();
 
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+// Always cache the singleton (fixes production connection pool exhaustion)
+globalForPrisma.prisma = prisma;
