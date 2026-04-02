@@ -1,27 +1,23 @@
-import { PrismaClient } from "../src/generated/prisma/client";
-import { PrismaPg } from "@prisma/adapter-pg";
+import pg from "pg";
 import "dotenv/config";
 
-const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
-const prisma = new PrismaClient({ adapter });
+// Dynamic import to handle ESM resolution
+async function createClient() {
+  const { PrismaClient } = await import("../src/generated/prisma/client.js");
+  const { PrismaPg } = await import("@prisma/adapter-pg");
+  const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL! });
+  const adapter = new PrismaPg(pool);
+  return new PrismaClient({ adapter });
+}
+
+let prisma: any;
 
 // Fixed UUIDs for system data
 const SYSTEM_COMPANY_ID = "00000000-0000-0000-0000-000000000001";
 const SYSTEM_USER_ID = "00000000-0000-0000-0000-000000000001";
 
-// Category IDs matching the existing seed pattern
-const CAT_IDS: Record<string, string> = {
-  "門まわり": "system-cat-1",
-  "塀・フェンス": "system-cat-2",
-  "カーポート・ガレージ": "system-cat-3",
-  "テラス・デッキ": "system-cat-4",
-  "アプローチ": "system-cat-5",
-  "駐車場・土間コンクリート": "system-cat-6",
-  "植栽・造園": "system-cat-7",
-  "照明・電気": "system-cat-8",
-  "排水・給水": "system-cat-9",
-  "付帯工事": "system-cat-10",
-};
+// Category IDs will be resolved at runtime from the database
+let CAT_IDS: Record<string, string> = {};
 
 // Helper to generate deterministic template IDs
 function templateId(n: number): string {
@@ -680,6 +676,8 @@ const templates: TemplateDefinition[] = [
 ];
 
 async function main() {
+  prisma = await createClient();
+
   // ── 1. Create system categories ──
   const categories = [
     "門まわり",
@@ -695,16 +693,20 @@ async function main() {
   ];
 
   for (let i = 0; i < categories.length; i++) {
-    await prisma.category.upsert({
-      where: { id: `system-cat-${i + 1}` },
-      update: {},
-      create: {
-        id: `system-cat-${i + 1}`,
-        name: categories[i],
-        sortOrder: i + 1,
-        isSystem: true,
-      },
+    // Find existing category by name, or create new one
+    let cat = await prisma.category.findFirst({
+      where: { name: categories[i], isSystem: true },
     });
+    if (!cat) {
+      cat = await prisma.category.create({
+        data: {
+          name: categories[i],
+          sortOrder: i + 1,
+          isSystem: true,
+        },
+      });
+    }
+    CAT_IDS[categories[i]] = cat.id;
   }
 
   console.log("System categories created");
