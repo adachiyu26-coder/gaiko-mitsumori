@@ -2,7 +2,7 @@ import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db/prisma";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { FileText, TrendingUp, Percent, CheckCircle2, Bell, ChevronRight, BarChart3 } from "lucide-react";
+import { FileText, TrendingUp, Percent, CheckCircle2, Bell, ChevronRight, BarChart3, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatCurrency, formatDate } from "@/lib/utils/format";
 import Link from "next/link";
@@ -141,7 +141,7 @@ export default async function DashboardPage() {
       )}
 
       {/* KPI カード */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {kpiCards.map((card) => (
           <Card key={card.title}>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -198,12 +198,16 @@ export default async function DashboardPage() {
         </CardHeader>
         <CardContent>
           {recentEstimates.length === 0 ? (
-            <p className="text-muted-foreground text-sm py-8 text-center">
-              見積がまだありません。
-              <Link href="/estimates/new" className="text-brand hover:underline ml-1">
-                最初の見積を作成
+            <div className="flex flex-col items-center py-12 space-y-3">
+              <FileText className="h-12 w-12 text-muted-foreground/50" />
+              <p className="text-muted-foreground text-sm">見積がまだありません</p>
+              <Link href="/estimates/new">
+                <Button className="bg-brand hover:bg-brand-hover">
+                  <Plus className="mr-2 h-4 w-4" />
+                  最初の見積を作成
+                </Button>
               </Link>
-            </p>
+            </div>
           ) : (
             <div className="space-y-3">
               {recentEstimates.map((estimate) => {

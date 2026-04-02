@@ -2,17 +2,19 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { LogOut, Menu } from "lucide-react";
+import { LogOut, Menu, UserCog } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { createClient } from "@/lib/supabase/client";
 import { MobileNav } from "./mobile-nav";
 import { cn } from "@/lib/utils";
+import Link from "next/link";
 
 interface HeaderProps {
   userName: string;
@@ -61,6 +63,11 @@ export function Header({ userName, companyName }: HeaderProps) {
             <span className="hidden sm:inline text-sm">{userName}</span>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
+            <DropdownMenuItem render={<Link href="/settings" />}>
+              <UserCog className="mr-2 h-4 w-4" />
+              プロフィール設定
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleLogout}>
               <LogOut className="mr-2 h-4 w-4" />
               ログアウト

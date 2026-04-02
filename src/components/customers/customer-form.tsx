@@ -3,10 +3,12 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useTransition } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Loader2 } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -45,8 +47,8 @@ export function CustomerForm({ defaultValues, isEdit }: CustomerFormProps) {
           await createCustomer(data);
         }
         toast.success(isEdit ? "顧客情報を更新しました" : "顧客を登録しました");
-      } catch {
-        toast.error("保存に失敗しました");
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "保存に失敗しました");
       }
     });
   };
@@ -158,8 +160,12 @@ export function CustomerForm({ defaultValues, isEdit }: CustomerFormProps) {
           </div>
 
           <div className="flex gap-3 justify-end">
+            <Link href="/customers">
+              <Button type="button" variant="ghost">キャンセル</Button>
+            </Link>
             <Button type="submit" className="bg-brand hover:bg-brand-hover" disabled={isPending}>
-              {isPending ? "保存中..." : isEdit ? "更新" : "登録"}
+              {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isPending ? "保存中..." : (isEdit ? "更新" : "登録")}
             </Button>
           </div>
         </form>

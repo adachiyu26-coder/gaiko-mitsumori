@@ -81,11 +81,22 @@ export default async function PublicQuotePage({
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <style jsx global>{`
+        @media print {
+          body { background: white !important; }
+          .no-print { display: none !important; }
+        }
+      `}</style>
       <div className="max-w-3xl mx-auto px-4 py-8 space-y-6">
-        {/* Company header */}
-        <div className="text-center space-y-2">
-          <h2 className="text-lg font-semibold text-muted-foreground">{estimate.company.name}</h2>
-          <h1 className="text-2xl font-bold">御見積書</h1>
+        {/* Company header with brand bar */}
+        <div className="bg-[#1e3a5f] text-white py-4 -mx-4 -mt-8 px-4 mb-6 rounded-t-lg">
+          <div className="max-w-3xl mx-auto text-center space-y-1">
+            {estimate.company.logoUrl && (
+              <img src={estimate.company.logoUrl} alt={estimate.company.name} className="h-10 mx-auto mb-2" />
+            )}
+            <h2 className="text-lg font-semibold">{estimate.company.name}</h2>
+            <h1 className="text-2xl font-bold">御見積書</h1>
+          </div>
         </div>
 
         {/* Status banner */}
@@ -219,7 +230,9 @@ export default async function PublicQuotePage({
 
         {/* Action buttons */}
         {canRespond && (
-          <QuoteActions token={token} estimateId={estimate.id} />
+          <div className="no-print">
+            <QuoteActions token={token} estimateId={estimate.id} />
+          </div>
         )}
 
         {/* Footer */}

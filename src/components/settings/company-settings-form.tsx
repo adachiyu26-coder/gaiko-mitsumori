@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Upload, Trash2, ImageIcon } from "lucide-react";
+import { Upload, Trash2, ImageIcon, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { updateCompanySettings } from "./actions";
 
@@ -107,8 +107,8 @@ export function CompanySettingsForm({ company, isOwner, logoUrl: initialLogoUrl 
       try {
         await updateCompanySettings(data);
         toast.success("設定を保存しました");
-      } catch {
-        toast.error("保存に失敗しました");
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "保存に失敗しました");
       }
     });
   };
@@ -298,6 +298,7 @@ export function CompanySettingsForm({ company, isOwner, logoUrl: initialLogoUrl 
             className="bg-brand hover:bg-brand-hover"
             disabled={isPending}
           >
+            {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {isPending ? "保存中..." : "設定を保存"}
           </Button>
         </div>

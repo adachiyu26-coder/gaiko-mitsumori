@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Save, FileDown, AlertTriangle } from "lucide-react";
+import { Save, FileDown, AlertTriangle, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useEstimateEditor, generateTempId, type EditorItem } from "@/stores/estimate-editor";
 import { EstimateItemTree } from "./estimate-item-tree";
@@ -196,8 +196,8 @@ export function EstimateForm({
           toast.success("見積を作成しました");
           setIsDirty(false);
         }
-      } catch {
-        toast.error("保存に失敗しました");
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "保存に失敗しました");
       }
     });
   };
@@ -345,7 +345,7 @@ export function EstimateForm({
             disabled={isPending}
             className="bg-brand hover:bg-brand-hover"
           >
-            <Save className="mr-2 h-4 w-4" />
+            {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
             {isPending ? "保存中..." : "保存"}
           </Button>
         </div>

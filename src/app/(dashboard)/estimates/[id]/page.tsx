@@ -155,7 +155,8 @@ export default async function EstimateDetailPage({
             {estimate.estimateNumber} ・ v{estimate.version}
           </p>
         </div>
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex gap-2 flex-wrap items-center">
+          {/* Primary actions */}
           <EstimateStatusActions
             estimateId={id}
             currentStatus={estimate.status}
@@ -166,6 +167,11 @@ export default async function EstimateDetailPage({
               編集
             </Button>
           </Link>
+
+          {/* Separator */}
+          <div className="hidden sm:block w-px h-6 bg-border mx-1" />
+
+          {/* Secondary actions */}
           <CreateVersionButton estimateId={id} />
           <DuplicateEstimateButton estimateId={id} />
           {canEditUnitPriceMaster(user.role) && (
