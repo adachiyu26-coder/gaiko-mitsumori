@@ -1,4 +1,4 @@
-import { LayoutDashboard, FileText, Users, Database, FolderOpen, Settings, BookOpen, Receipt, Hammer } from "lucide-react";
+import { LayoutDashboard, FileText, Users, Database, FolderOpen, Settings, BookOpen, Receipt, Hammer, HelpCircle } from "lucide-react";
 
 export const navItems = [
   { href: "/dashboard", label: "ダッシュボード", icon: LayoutDashboard },
@@ -10,4 +10,5 @@ export const navItems = [
   { href: "/master/catalog", label: "カタログ", icon: BookOpen },
   { href: "/master/templates", label: "テンプレート", icon: FolderOpen },
   { href: "/settings", label: "設定", icon: Settings },
+  { href: "/help", label: "ヘルプ", icon: HelpCircle },
 ] as const;
